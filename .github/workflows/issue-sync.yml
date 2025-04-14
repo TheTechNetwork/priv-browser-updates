@@ -1,5 +1,4 @@
 name: Sync Issue Comments to GH issues
-
 on:
   push:
     branches:
@@ -14,13 +13,11 @@ permissions:
   contents: read
 
 jobs:
-  update-issues:
+  todo-sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
       - name: Sync TODOs with Issues
-        uses: alexdor/issue-syncer@main
+        uses: alexdor/issue-syncer@v1.0.3 # x-release-please-version
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
