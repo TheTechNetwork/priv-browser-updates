@@ -81,6 +81,9 @@ To configure your Chromium fork to use this update server:
    npm run dev
    ```
 
+## To Do
+   // TODO add portal authentication
+   
 ## License
 
 MIT
