@@ -1,0 +1,14 @@
+name = "chromium-update-worker"
+main = "src/index.ts"
+compatibility_date = "2023-10-16"
+
+# Bind to the D1 database
+[[d1_databases]]
+binding = "DB"
+database_name = "chromium_updates"
+database_id = "${{ secrets.CLOUDFLARE_D1_ID }}"
+
+# KV namespace for caching
+[[kv_namespaces]]
+binding = "CACHE"
+id = "${{ secrets.CLOUDFLARE_KV_ID }}"

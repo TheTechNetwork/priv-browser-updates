@@ -1,50 +1,86 @@
-# React + TypeScript + Vite
+# Chromium Update Server
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A self-hosted update server for Chromium-based browsers, deployed on Cloudflare.
 
-Currently, two official plugins are available:
+## Overview
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+This project provides a complete solution for serving updates to your Chromium-based browser fork. It consists of:
 
-## Expanding the ESLint configuration
+1. **Admin Dashboard**: A React-based web interface for managing releases, viewing update statistics, and configuring the update server.
+2. **Update Server**: A Cloudflare Worker that handles update requests from clients and serves update manifests.
+3. **Database**: Uses Cloudflare D1 for storing release information, configurations, and update request logs.
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+## Features
 
-- Configure the top-level `parserOptions` property like this:
+- Serve update manifests for Chromium clients using the Omaha protocol
+- Fetch release information from GitHub repositories
+- Support multiple update channels (stable, beta, dev)
+- Monitor update requests and client statistics
+- Configure GitHub integration settings
+- Cache GitHub API responses for performance
 
-```js
-export default tseslint.config({
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
+## Deployment
 
-- Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
-- Optionally add `...tseslint.configs.stylisticTypeChecked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and update the config:
+### Prerequisites
 
-```js
-// eslint.config.js
-import react from 'eslint-plugin-react'
+1. A Cloudflare account
+2. Cloudflare API token with appropriate permissions
+3. A GitHub repository for your Chromium fork releases
 
-export default tseslint.config({
-  // Set the react version
-  settings: { react: { version: '18.3' } },
-  plugins: {
-    // Add the react plugin
-    react,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended rules
-    ...react.configs.recommended.rules,
-    ...react.configs['jsx-runtime'].rules,
-  },
-})
-```
+### Setup
+
+1. **Create Cloudflare Resources**:
+   - Create a Cloudflare Pages project
+   - Create a Cloudflare D1 database
+   - Create a Cloudflare KV namespace for caching
+
+2. **Configure GitHub Secrets**:
+   Add the following secrets to your GitHub repository:
+   ```
+   CLOUDFLARE_API_TOKEN=your_cloudflare_api_token
+   CLOUDFLARE_ACCOUNT_ID=your_cloudflare_account_id
+   CLOUDFLARE_D1_ID=your_d1_database_id
+   CLOUDFLARE_KV_ID=your_kv_namespace_id
+   ```
+
+3. **Initialize Database**:
+   Run the SQL migration script to set up the database schema:
+   ```
+   wrangler d1 execute chromium_updates --file=fine/migrations/20250414011058_create_initial_schema.sql
+   ```
+
+4. **Deploy**:
+   Push to the main branch to trigger the GitHub Actions workflow, or manually run the workflow from the Actions tab.
+
+## Configuring Your Chromium Fork
+
+To configure your Chromium fork to use this update server:
+
+1. Locate the update URL configuration in your Chromium source code (typically in `chrome/common/chrome_constants.cc`)
+2. Update it to point to your Cloudflare Worker:
+   ```cpp
+   // Change this line:
+   const char kBrowserUpdateURL[] = "https://tools.google.com/service/update2";
+   
+   // To:
+   const char kBrowserUpdateURL[] = "https://your-worker.your-subdomain.workers.dev/update";
+   ```
+
+## Local Development
+
+1. **Frontend**:
+   ```
+   npm install
+   npm run dev
+   ```
+
+2. **Worker**:
+   ```
+   cd worker
+   npm install
+   npm run dev
+   ```
+
+## License
+
+MIT
