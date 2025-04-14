@@ -1,31 +1,22 @@
 export type Schema = {
-  releases: {
+  photos: {
     id?: number;
-    version: string;
-    channel: string;
-    platform: string;
-    downloadUrl: string;
-    releaseNotes?: string | null;
-    fileSize?: number | null;
-    sha256?: string | null;
-    createdAt?: string;
-    isActive?: boolean;
+    title: string;
+    description: string | null;
+    imageUrl: string;
+    category: string;
+    featured: boolean;
+    dateCreated: string;
   };
-  
-  configurations: {
+  categories: {
     id?: number;
-    key: string;
-    value: string;
-    updatedAt?: string;
+    name: string;
   };
-  
-  updateRequests: {
+  contact: {
     id?: number;
-    clientVersion?: string | null;
-    platform?: string | null;
-    channel?: string | null;
-    ip?: string | null;
-    userAgent?: string | null;
-    timestamp?: string;
+    name: string;
+    email: string;
+    message: string;
+    dateSubmitted: string;
   };
 }
