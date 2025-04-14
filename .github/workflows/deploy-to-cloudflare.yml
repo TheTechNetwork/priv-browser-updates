@@ -95,12 +95,12 @@ jobs:
       - name: Create KV namespace if it doesn't exist
         run: |
           # Check if KV namespace exists
-          KV_EXISTS=$(wrangler kv:namespace list --json | jq -r '.[] | select(.title=="CHROMIUM_CACHE") | .title')
+          KV_EXISTS=$(wrangler kv namespace list --json | jq -r '.[] | select(.title=="CHROMIUM_CACHE") | .title')
           
           # If KV namespace doesn't exist, create it
           if [ "$KV_EXISTS" != "CHROMIUM_CACHE" ]; then
             echo "Creating KV namespace..."
-            wrangler kv:namespace create CHROMIUM_CACHE
+            wrangler kv namespace create CHROMIUM_CACHE
           else
             echo "KV namespace already exists."
           fi
