@@ -1,54 +1,101 @@
-import { Link } from "react-router-dom";
+import { useState } from "react";
+import { Link, NavLink } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { MoonIcon, SunIcon, GithubIcon, Settings, BarChart3 } from "lucide-react";
-import { useTheme } from "@/components/layout/theme-provider";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { Menu, X } from "lucide-react";
 
 export function Header() {
-  const { theme, setTheme } = useTheme();
-  
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  const toggleMenu = () => {
+    setIsMenuOpen(!isMenuOpen);
+  };
+
+  const closeMenu = () => {
+    setIsMenuOpen(false);
+  };
+
   return (
-    <header className="sticky top-0 z-40 w-full border-b bg-background">
-      <div className="container flex h-16 items-center justify-between py-4">
-        <div className="flex items-center gap-2">
-          <Link to="/" className="flex items-center space-x-2">
-            <GithubIcon className="h-6 w-6" />
-            <span className="font-bold text-xl">Chromium Update Server</span>
-          </Link>
+    <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-sm">
+      <div className="container flex h-16 items-center justify-between px-4 md:px-6">
+        <Link to="/" className="flex items-center gap-2" onClick={closeMenu}>
+          <span className="text-xl font-bold tracking-tight">Luminous</span>
+        </Link>
+        
+        <div className="hidden md:flex items-center gap-6">
+          <nav className="flex gap-6">
+            <NavLink 
+              to="/" 
+              className={({ isActive }) => 
+                isActive ? "text-primary font-medium" : "text-muted-foreground hover:text-primary transition-colors"
+              }
+              end
+            >
+              Gallery
+            </NavLink>
+            <NavLink 
+              to="/about" 
+              className={({ isActive }) => 
+                isActive ? "text-primary font-medium" : "text-muted-foreground hover:text-primary transition-colors"
+              }
+            >
+              About
+            </NavLink>
+            <NavLink 
+              to="/contact" 
+              className={({ isActive }) => 
+                isActive ? "text-primary font-medium" : "text-muted-foreground hover:text-primary transition-colors"
+              }
+            >
+              Contact
+            </NavLink>
+          </nav>
+          <ThemeToggle />
         </div>
         
-        <nav className="hidden md:flex items-center gap-6">
-          <Link to="/" className="text-sm font-medium transition-colors hover:text-primary">
-            Dashboard
-          </Link>
-          <Link to="/releases" className="text-sm font-medium transition-colors hover:text-primary">
-            Releases
-          </Link>
-          <Link to="/logs" className="text-sm font-medium transition-colors hover:text-primary">
-            Logs
-          </Link>
-          <Link to="/settings" className="text-sm font-medium transition-colors hover:text-primary">
-            Settings
-          </Link>
-          <Link to="/api-docs" className="text-sm font-medium transition-colors hover:text-primary">
-            API Docs
-          </Link>
-        </nav>
-        
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            aria-label="Toggle theme"
-          >
-            {theme === "dark" ? (
-              <SunIcon className="h-5 w-5" />
-            ) : (
-              <MoonIcon className="h-5 w-5" />
-            )}
+        <div className="md:hidden flex items-center gap-4">
+          <ThemeToggle />
+          <Button variant="ghost" size="icon" onClick={toggleMenu} aria-label="Toggle menu">
+            {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </Button>
         </div>
       </div>
+      
+      {/* Mobile menu */}
+      {isMenuOpen && (
+        <div className="md:hidden absolute top-16 left-0 right-0 border-b bg-background z-50">
+          <nav className="container flex flex-col py-4 px-4">
+            <NavLink 
+              to="/" 
+              className={({ isActive }) => 
+                `py-3 ${isActive ? "text-primary font-medium" : "text-muted-foreground"}`
+              }
+              onClick={closeMenu}
+              end
+            >
+              Gallery
+            </NavLink>
+            <NavLink 
+              to="/about" 
+              className={({ isActive }) => 
+                `py-3 ${isActive ? "text-primary font-medium" : "text-muted-foreground"}`
+              }
+              onClick={closeMenu}
+            >
+              About
+            </NavLink>
+            <NavLink 
+              to="/contact" 
+              className={({ isActive }) => 
+                `py-3 ${isActive ? "text-primary font-medium" : "text-muted-foreground"}`
+              }
+              onClick={closeMenu}
+            >
+              Contact
+            </NavLink>
+          </nav>
+        </div>
+      )}
     </header>
   );
 }
