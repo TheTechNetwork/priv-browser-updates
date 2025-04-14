@@ -3,7 +3,7 @@ main = "src/index.ts"
 compatibility_date = "2023-10-16"
 
 # Use environment variables for account_id
-account_id = "${CLOUDFLARE_ACCOUNT_ID}"
+account_id = "c6452865d04ed5bd485084005c60cb02"
 
 # Bind to the D1 database
 [[d1_databases]]
