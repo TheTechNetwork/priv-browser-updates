@@ -2,17 +2,14 @@ name = "chromium-update-server"
 main = "src/index.ts"
 compatibility_date = "2023-10-16"
 
-# Use environment variables for account_id
 account_id = "c6452865d04ed5bd485084005c60cb02"
 
-# Bind to the D1 database
 [[d1_databases]]
 binding = "DB"
 database_name = "chromium_updates"
-database_id = "${CLOUDFLARE_D1_ID}"
+database_id = "20dd4a07-91c3-4124-a06f-554bc5b0f9b6"
 
-# KV namespace for caching
 [[kv_namespaces]]
 binding = "CACHE"
-id = "${CLOUDFLARE_KV_ID}"
-preview_id = "${CLOUDFLARE_KV_ID}"
+id = "82c269886358409ea6ea6f72b7281e6c"
+preview_id = "931b43d30884411288f1bbf459ddd0c9"
