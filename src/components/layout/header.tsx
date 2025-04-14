@@ -1,53 +1,114 @@
-import { Link } from "react-router-dom";
+import { useState } from "react";
+import { Link, NavLink } from "react-router-dom";
+import { Menu, X, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { MoonIcon, SunIcon, GithubIcon, Settings, BarChart3 } from "lucide-react";
-import { useTheme } from "@/components/layout/theme-provider";
+import { ThemeToggle } from "./ThemeToggle";
 
 export function Header() {
-  const { theme, setTheme } = useTheme();
-  
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  const toggleMenu = () => {
+    setIsMenuOpen(!isMenuOpen);
+  };
+
   return (
-    <header className="sticky top-0 z-40 w-full border-b bg-background">
-      <div className="container flex h-16 items-center justify-between py-4">
-        <div className="flex items-center gap-2">
-          <Link to="/" className="flex items-center space-x-2">
-            <GithubIcon className="h-6 w-6" />
-            <span className="font-bold text-xl">Chromium Update Server</span>
-          </Link>
-        </div>
-        
+    <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-sm">
+      <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+        <Link to="/" className="flex items-center gap-2">
+          <Camera className="h-6 w-6" />
+          <span className="font-bold text-xl">PhotoFolio</span>
+        </Link>
+
+        {/* Mobile menu button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="md:hidden"
+          onClick={toggleMenu}
+        >
+          {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+        </Button>
+
+        {/* Desktop navigation */}
         <nav className="hidden md:flex items-center gap-6">
-          <Link to="/" className="text-sm font-medium transition-colors hover:text-primary">
-            Dashboard
-          </Link>
-          <Link to="/releases" className="text-sm font-medium transition-colors hover:text-primary">
-            Releases
-          </Link>
-          <Link to="/logs" className="text-sm font-medium transition-colors hover:text-primary">
-            Logs
-          </Link>
-          <Link to="/settings" className="text-sm font-medium transition-colors hover:text-primary">
-            Settings
-          </Link>
-          <Link to="/api-docs" className="text-sm font-medium transition-colors hover:text-primary">
-            API Docs
-          </Link>
-        </nav>
-        
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            aria-label="Toggle theme"
+          <NavLink
+            to="/"
+            className={({ isActive }) =>
+              isActive
+                ? "font-medium text-primary"
+                : "text-muted-foreground hover:text-foreground transition-colors"
+            }
+            end
           >
-            {theme === "dark" ? (
-              <SunIcon className="h-5 w-5" />
-            ) : (
-              <MoonIcon className="h-5 w-5" />
-            )}
-          </Button>
-        </div>
+            Gallery
+          </NavLink>
+          <NavLink
+            to="/about"
+            className={({ isActive }) =>
+              isActive
+                ? "font-medium text-primary"
+                : "text-muted-foreground hover:text-foreground transition-colors"
+            }
+          >
+            About
+          </NavLink>
+          <NavLink
+            to="/contact"
+            className={({ isActive }) =>
+              isActive
+                ? "font-medium text-primary"
+                : "text-muted-foreground hover:text-foreground transition-colors"
+            }
+          >
+            Contact
+          </NavLink>
+          <ThemeToggle />
+        </nav>
+
+        {/* Mobile navigation */}
+        {isMenuOpen && (
+          <div className="absolute top-full left-0 right-0 bg-background border-b p-4 md:hidden">
+            <nav className="flex flex-col space-y-4">
+              <NavLink
+                to="/"
+                className={({ isActive }) =>
+                  isActive
+                    ? "font-medium text-primary"
+                    : "text-muted-foreground hover:text-foreground transition-colors"
+                }
+                onClick={() => setIsMenuOpen(false)}
+                end
+              >
+                Gallery
+              </NavLink>
+              <NavLink
+                to="/about"
+                className={({ isActive }) =>
+                  isActive
+                    ? "font-medium text-primary"
+                    : "text-muted-foreground hover:text-foreground transition-colors"
+                }
+                onClick={() => setIsMenuOpen(false)}
+              >
+                About
+              </NavLink>
+              <NavLink
+                to="/contact"
+                className={({ isActive }) =>
+                  isActive
+                    ? "font-medium text-primary"
+                    : "text-muted-foreground hover:text-foreground transition-colors"
+                }
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Contact
+              </NavLink>
+              <div className="pt-2">
+                <ThemeToggle />
+              </div>
+            </nav>
+          </div>
+        )}
       </div>
     </header>
   );
