@@ -1,0 +1,49 @@
+name: Create PR for Test Coverage
+
+on:
+  # Run manually
+  workflow_dispatch:
+    inputs:
+      base_branch:
+        description: 'The branch to create the PR against'
+        required: true
+        default: 'main'
+      head_branch:
+        description: 'The branch containing the changes'
+        required: true
+        default: 'add-test-coverage'
+
+jobs:
+  create-pr:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "Add test coverage for utility functions"
+          title: "Add test coverage for utility functions"
+          body: |
+            This PR adds test coverage for the repository's utility functions:
+
+            - Added Jest testing framework with necessary configuration
+            - Created mock files for SVG and CSS imports
+            - Implemented unit tests for utility functions:
+              - Tests for parseVersionString and compareVersions in github.ts
+              - Tests for generateUpdateXml in update-service.ts
+              - Tests for cn utility function in utils.ts
+            - Added test scripts to package.json
+            - Set up test coverage reporting
+
+            All tests are passing and provide a foundation for further test coverage expansion.
+          branch: ${{ github.event.inputs.head_branch }}
+          base: ${{ github.event.inputs.base_branch }}
+          labels: |
+            test
+            enhancement
