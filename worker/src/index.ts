@@ -33,14 +33,20 @@ async function handleUpdateRequest(request: Request, env: Env): Promise<Response
     const ip = request.headers.get('CF-Connecting-IP') || '';
     const userAgent = request.headers.get('User-Agent') || '';
     
-    // Process the update request
-    const updateXml = await processUpdateRequest({
+    // Log the update request
+    await logUpdateRequest({
       version,
       platform,
       channel,
       ip,
       userAgent
     }, env.DB);
+    
+    // Get the latest version for the requested platform and channel
+    const latestRelease = await getLatestVersion(platform, channel, env.DB);
+    
+    // Generate and return the update XML
+    const updateXml = generateUpdateXml(latestRelease, { version });
     
     // Return the XML response
     return new Response(updateXml, {
@@ -79,24 +85,6 @@ async function handleApiRequest(request: Request, url: URL, env: Env): Promise<R
   }
   
   return new Response('API endpoint not found', { status: 404 });
-}
-
-// Import the processUpdateRequest function
-async function processUpdateRequest(request: {
-  version: string;
-  platform: string;
-  channel: string;
-  ip: string;
-  userAgent: string;
-}, db: D1Database): Promise<string> {
-  // Log the update request
-  await logUpdateRequest(request, db);
-  
-  // Get the latest version for the requested platform and channel
-  const latestRelease = await getLatestVersion(request.platform, request.channel, db);
-  
-  // Generate and return the update XML
-  return generateUpdateXml(latestRelease, request);
 }
 
 async function logUpdateRequest(request: {
