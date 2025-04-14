@@ -1,3 +1,5 @@
+name: Sync Issue Comments to GH issues
+
 on:
   push:
     branches:
