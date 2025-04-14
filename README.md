@@ -82,7 +82,7 @@ To configure your Chromium fork to use this update server:
    ```
 
 ## To Do
-   // TODO: add portal authentication
+   TODO: add portal authentication
    
 ## License
 
