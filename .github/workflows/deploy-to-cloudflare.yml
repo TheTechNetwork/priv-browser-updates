@@ -28,12 +28,9 @@ jobs:
 
       - name: Create Cloudflare Pages project if it doesn't exist
         run: |
-          # Check if project exists
           PROJECT_EXISTS=$(curl -s -X GET "https://api.cloudflare.com/client/v4/accounts/${{ secrets.CLOUDFLARE_ACCOUNT_ID }}/pages/projects/chromium-update-server" \
             -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
             -H "Content-Type: application/json" | jq -r '.success')
-          
-          # If project doesn't exist, create it
           if [ "$PROJECT_EXISTS" != "true" ]; then
             echo "Creating Cloudflare Pages project..."
             curl -X POST "https://api.cloudflare.com/client/v4/accounts/${{ secrets.CLOUDFLARE_ACCOUNT_ID }}/pages/projects" \
@@ -72,50 +69,32 @@ jobs:
 
       - name: Create D1 database if it doesn't exist
         run: |
-          # Install Wrangler globally
           npm install -g wrangler
-          
-          # Check if D1 database exists
           DB_EXISTS=$(wrangler d1 list --json | jq -r '.[] | select(.name=="chromium_updates") | .name')
-          
-          # If database doesn't exist, create it
           if [ "$DB_EXISTS" != "chromium_updates" ]; then
             echo "Creating D1 database..."
             wrangler d1 create chromium_updates
-            
-            # Apply migrations
             wrangler d1 execute chromium_updates --file=fine/migrations/20250414011058_create_initial_schema.sql
           else
             echo "D1 database already exists."
           fi
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
-      
-      - name: Debug Environment Variables
-        run: |
-          echo "Account ID: $CLOUDFLARE_ACCOUNT_ID"  # Debugging step
 
       - name: Create KV namespace if it doesn't exist
         run: |
-          # Check if KV namespace exists
-          KV_EXISTS=$(wrangler kv namespace list | jq -r '.[] | select(.title=="CHROMIUM_CACHE") | .title')
-          
-          # If KV namespace doesn't exist, create it
-          if [ "$KV_EXISTS" != "CHROMIUM_CACHE" ]; then
+          KV_EXISTS=$(wrangler kv namespace list | jq -r '.[] | select(.title=="chromium_updates_cache") | .title')
+          if [ "$KV_EXISTS" != "chromium_updates_cache" ]; then
             echo "Creating KV namespace..."
-            wrangler kv namespace create CHROMIUM_CACHE
+            wrangler kv namespace create chromium_updates_cache
           else
             echo "KV namespace already exists."
           fi
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
       - name: Deploy Worker
         working-directory: ./worker
         run: npx wrangler deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
