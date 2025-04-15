@@ -13,17 +13,3 @@ database_id = "20dd4a07-91c3-4124-a06f-554bc5b0f9b6"
 binding = "CACHE"
 id = "82c269886358409ea6ea6f72b7281e6c"
 preview_id = "931b43d30884411288f1bbf459ddd0c9"
-
-[[kv_namespaces]]
-binding = "SESSION_STORE"
-id = "82c269886358409ea6ea6f72b7281e6c"
-preview_id = "931b43d30884411288f1bbf459ddd0c9"
-
-# Environment variables
-# These should be set in the Cloudflare dashboard for production
-[vars]
-GITHUB_CLIENT_ID = ""
-GITHUB_CLIENT_SECRET = ""
-ENCRYPTION_KEY = ""
-SESSION_SECRET = ""
-ALLOWED_ADMIN_USERS = "admin1,admin2"
