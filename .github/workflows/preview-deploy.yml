@@ -108,13 +108,16 @@ jobs:
           # Create a unique name for the preview deployment
           PREVIEW_NAME="preview-$(echo ${{ github.head_ref }} | tr -cd '[a-zA-Z0-9]' | tr '[:upper:]' '[:lower:]' | cut -c 1-20)"
           
-          # Deploy with the preview flag
-          npx wrangler deploy --name $PREVIEW_NAME --env preview
+          # Update wrangler.toml with the preview name
+          sed -i "s/\[env.preview\]/[env.preview]\nname = \"$PREVIEW_NAME\"/" wrangler.toml
+          
+          # Deploy with the preview environment
+          npx wrangler deploy --env preview
           
           # Comment on PR with preview URL
           if [ "${{ github.event_name }}" == "pull_request" ]; then
             PREVIEW_URL="https://$PREVIEW_NAME.${CLOUDFLARE_WORKER_DOMAIN:-workers.dev}"
-            echo "::set-output name=preview_url::$PREVIEW_URL"
+            echo "preview_url=$PREVIEW_URL" >> $GITHUB_OUTPUT
             
             # Add comment to PR
             curl -X POST \

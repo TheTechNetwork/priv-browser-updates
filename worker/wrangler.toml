@@ -13,3 +13,7 @@ database_id = "20dd4a07-91c3-4124-a06f-554bc5b0f9b6"
 binding = "CACHE"
 id = "82c269886358409ea6ea6f72b7281e6c"
 preview_id = "931b43d30884411288f1bbf459ddd0c9"
+
+# Preview environment configuration
+[env.preview]
+# The name will be set dynamically in the GitHub workflow
