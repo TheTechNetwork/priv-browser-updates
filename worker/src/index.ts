@@ -80,20 +80,17 @@ async function handleUpdateRequest(request: Request, env: Env): Promise<Response
     const ip = request.headers.get('CF-Connecting-IP') || '';
     const userAgent = request.headers.get('User-Agent') || '';
     
-    // Log the update request
-    await logUpdateRequest({
+    // Create update service instance
+    const updateService = new UpdateService(env.DB, env.CACHE);
+    
+    // Process the update request
+    const updateXml = await updateService.processUpdateRequest({
       version,
       platform,
       channel,
       ip,
       userAgent
-    }, env.DB);
-    
-    // Get the latest version for the requested platform and channel
-    const latestRelease = await getLatestVersion(platform, channel, env.DB);
-    
-    // Generate and return the update XML
-    const updateXml = generateUpdateXml(latestRelease, { version });
+    });
     
     // Return the XML response
     return new Response(updateXml, {
