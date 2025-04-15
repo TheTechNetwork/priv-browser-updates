@@ -1,9 +1,13 @@
 name: Run Tests
 
 on:
-  # Run on pull requests
+  # Run on all pull requests
   pull_request:
-    branches:
+    types: [opened, synchronize, reopened]
+  
+  # Run on push to any branch
+  push:
+    branches-ignore:
       - main
   
   # Allow manual triggering
