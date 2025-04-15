@@ -1,13 +1,10 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { MoonIcon, SunIcon, GithubIcon } from "lucide-react";
+import { MoonIcon, SunIcon, GithubIcon, Settings, BarChart3 } from "lucide-react";
 import { useTheme } from "@/components/layout/theme-provider";
-import { UserNav } from "@/components/layout/user-nav";
-import { useAuth, UserRole } from "@/contexts/auth-context";
 
 export function Header() {
   const { theme, setTheme } = useTheme();
-  const { isAuthenticated, userRole } = useAuth();
   
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background">
@@ -29,11 +26,9 @@ export function Header() {
           <Link to="/logs" className="text-sm font-medium transition-colors hover:text-primary">
             Logs
           </Link>
-          {isAuthenticated && userRole === UserRole.ADMIN && (
-            <Link to="/settings" className="text-sm font-medium transition-colors hover:text-primary">
-              Settings
-            </Link>
-          )}
+          <Link to="/settings" className="text-sm font-medium transition-colors hover:text-primary">
+            Settings
+          </Link>
           <Link to="/api-docs" className="text-sm font-medium transition-colors hover:text-primary">
             API Docs
           </Link>
@@ -52,7 +47,6 @@ export function Header() {
               <MoonIcon className="h-5 w-5" />
             )}
           </Button>
-          <UserNav />
         </div>
       </div>
     </header>
