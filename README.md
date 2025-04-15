@@ -81,9 +81,52 @@ To configure your Chromium fork to use this update server:
    npm run dev
    ```
 
-## To Do
-   TODO: add portal authentication
-   
+## Authentication
+
+The admin dashboard is protected with GitHub OAuth authentication to secure sensitive settings and GitHub tokens.
+
+### Authentication Features
+
+- GitHub OAuth authentication for secure access
+- Role-based access control for settings page
+- Secure token handling with encryption
+- Cloudflare D1 database for configuration storage
+- Cloudflare KV for session management
+- Rate limiting for authentication endpoints
+- CSRF protection with state parameter validation
+
+### Setting Up Authentication
+
+1. **Create a GitHub OAuth Application**:
+   - Go to your GitHub account settings
+   - Navigate to "Developer settings" > "OAuth Apps" > "New OAuth App"
+   - Fill in the application details:
+     - Application name: Browser Updates Server
+     - Homepage URL: Your application URL (e.g., https://your-domain.com)
+     - Authorization callback URL: Your application URL + /auth/callback (e.g., https://your-domain.com/auth/callback)
+   - Register the application and note the Client ID and Client Secret
+
+2. **Update Environment Variables**:
+   Edit the `wrangler.toml` file and update the following variables:
+   ```toml
+   [vars]
+   GITHUB_CLIENT_ID = "your-github-client-id"
+   GITHUB_CLIENT_SECRET = "your-github-client-secret"
+   ENCRYPTION_KEY = "your-encryption-key" # Generate a secure random string
+   SESSION_SECRET = "your-session-secret" # Generate a secure random string
+   ALLOWED_ADMIN_USERS = "admin1,admin2,admin3" # GitHub usernames with admin access
+   ```
+
+### Security Considerations
+
+- GitHub tokens are encrypted before storage
+- Settings page is protected with role-based access control
+- Clear visual indicators for sensitive data
+- OAuth authentication instead of username/password
+- CSRF protection with state parameter validation
+- Rate limiting for authentication attempts
+- Secure headers with Hono's secureHeaders middleware
+- Session expiration after 7 days
 ## License
 
 MIT
