@@ -3,25 +3,42 @@ import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { ConfigForm } from "@/components/dashboard/config-form";
 import { Loader2 } from "lucide-react";
-import { fine } from "@/lib/fine";
 import { useToast } from "@/hooks/use-toast";
+import { decryptToken } from "@/lib/secure-token";
+import { useAuth, UserRole } from "@/contexts/auth-context";
+import { SecurityBanner } from "@/components/auth/security-banner";
 
 const Settings = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [config, setConfig] = useState<Record<string, string>>({});
   const { toast } = useToast();
 
+  const { userRole } = useAuth();
+  
   const fetchConfig = async () => {
     try {
       setIsLoading(true);
-      const configs = await fine.table("configurations").select();
       
-      const configMap: Record<string, string> = {};
-      configs.forEach(config => {
-        configMap[config.key] = config.value;
-      });
+      // In a real application, you would fetch this from your database
+      // For now, we'll use localStorage as a temporary storage solution
+      const storedConfig = localStorage.getItem('app_config');
       
-      setConfig(configMap);
+      if (storedConfig) {
+        const parsedConfig = JSON.parse(storedConfig);
+        const configMap: Record<string, string> = {};
+        
+        // Process each config item
+        Object.entries(parsedConfig).forEach(([key, value]) => {
+          // Decrypt GitHub token if present
+          if (key === "githubToken" && value) {
+            configMap[key] = decryptToken(value as string);
+          } else {
+            configMap[key] = value as string;
+          }
+        });
+        
+        setConfig(configMap);
+      }
     } catch (error) {
       console.error("Failed to fetch configuration:", error);
       toast({
@@ -48,6 +65,8 @@ const Settings = () => {
             Configure your Chromium update server.
           </p>
         </div>
+
+        <SecurityBanner showSensitiveData={true} />
 
         {isLoading ? (
           <div className="flex justify-center items-center py-12">

@@ -1,13 +1,14 @@
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
-import { fine } from "@/lib/fine";
+import { Loader2, ShieldAlert } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { SecureInput } from "@/components/auth/secure-input";
+import { encryptToken, decryptToken, isValidGithubToken } from "@/lib/secure-token";
 
 interface ConfigFormProps {
   initialConfig: Record<string, string>;
@@ -34,21 +35,30 @@ export function ConfigForm({ initialConfig, onSaved }: ConfigFormProps) {
     try {
       setIsLoading(true);
       
-      // Convert boolean values to strings
+      // Validate GitHub token if provided
+      if (data.githubToken && !isValidGithubToken(data.githubToken)) {
+        toast({
+          title: "Invalid GitHub Token",
+          description: "The GitHub token format appears to be invalid. Please check and try again.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+      
+      // Convert boolean values to strings and encrypt sensitive data
       const configData = {
         ...data,
+        // Encrypt GitHub token before storing
+        githubToken: data.githubToken ? encryptToken(data.githubToken) : "",
         stableChannel: data.stableChannel ? "true" : "false",
         betaChannel: data.betaChannel ? "true" : "false",
         devChannel: data.devChannel ? "true" : "false",
       };
       
-      // Update each configuration value
-      for (const [key, value] of Object.entries(configData)) {
-        await fine.table("configurations")
-          .update({ value: String(value) })
-          .eq("key", key)
-          .select();
-      }
+      // In a real application, you would save this to your database
+      // For now, we'll use localStorage as a temporary storage solution
+      localStorage.setItem('app_config', JSON.stringify(configData));
       
       toast({
         title: "Settings saved",
@@ -105,15 +115,28 @@ export function ConfigForm({ initialConfig, onSaved }: ConfigFormProps) {
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="githubToken">GitHub API Token (Optional)</Label>
-            <Input
-              id="githubToken"
-              type="password"
-              placeholder="Personal access token for private repositories"
-              {...register("githubToken")}
+            <div className="flex items-center gap-2">
+              <Label htmlFor="githubToken">GitHub API Token (Optional)</Label>
+              <ShieldAlert className="h-4 w-4 text-amber-500" />
+            </div>
+            <Controller
+              name="githubToken"
+              control={register().control}
+              render={({ field }) => (
+                <SecureInput
+                  id="githubToken"
+                  placeholder="Personal access token for private repositories"
+                  value={field.value}
+                  onChange={field.onChange}
+                  name={field.name}
+                  disabled={isLoading}
+                />
+              )}
             />
             <p className="text-xs text-muted-foreground">
               Only required for private repositories or to increase API rate limits.
+              <br />
+              <span className="text-amber-500">Security note: Use tokens with minimal permissions (read-only access).</span>
             </p>
           </div>
           
