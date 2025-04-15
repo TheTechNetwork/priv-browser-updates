@@ -7,6 +7,40 @@ import { api } from "./auth";
 class MockFineClient<T> {
   constructor(private baseUrl: string) {}
 
+  // Table method to match the Fine.dev API
+  table<K extends keyof T>(tableName: K) {
+    return {
+      select: () => {
+        return {
+          eq: (field: string, value: any) => {
+            return {
+              eq: (field2: string, value2: any) => {
+                return {
+                  eq: (field3: string, value3: any) => {
+                    return this.query(tableName);
+                  },
+                  length: 0 // Mock empty result
+                };
+              }
+            };
+          }
+        };
+      },
+      insert: (data: Partial<T[K]>) => {
+        return this.create(tableName, data);
+      },
+      update: (data: Partial<T[K]>) => {
+        return {
+          eq: (field: string, value: any) => {
+            return {
+              select: () => this.update(tableName, value, data)
+            };
+          }
+        };
+      }
+    };
+  }
+
   async query<K extends keyof T>(
     collection: K,
     options?: any
