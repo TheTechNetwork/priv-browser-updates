@@ -21,22 +21,18 @@ export async function logUpdateRequest(request: UpdateRequest): Promise<void> {
 }
 
 export async function getLatestVersion(platform: string, channel: string): Promise<Schema["releases"] | null> {
-  // Use the query method directly for tests
-  const releases = await fine.query("releases");
+  const releases = await fine.table("releases")
+    .select()
+    .eq("platform", platform)
+    .eq("channel", channel)
+    .eq("isActive", true);
   
-  // Filter the releases based on the criteria
-  const filteredReleases = releases.filter(
-    release => release.platform === platform && 
-               release.channel === channel && 
-               release.isActive === true
-  );
-  
-  if (filteredReleases.length === 0) {
+  if (releases.length === 0) {
     return null;
   }
   
   // Find the release with the highest version number
-  return filteredReleases.reduce((latest, current) => {
+  return releases.reduce((latest, current) => {
     if (!latest || compareVersions(current.version, latest.version) > 0) {
       return current;
     }

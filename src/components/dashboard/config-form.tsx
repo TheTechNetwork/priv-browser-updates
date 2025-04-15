@@ -1,14 +1,13 @@
 import { useState } from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, ShieldAlert } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { fine } from "@/lib/fine";
 import { useToast } from "@/hooks/use-toast";
-import { SecureInput } from "@/components/auth/secure-input";
-import { encryptToken, decryptToken, isValidGithubToken } from "@/lib/secure-token";
 
 interface ConfigFormProps {
   initialConfig: Record<string, string>;
@@ -19,7 +18,7 @@ export function ConfigForm({ initialConfig, onSaved }: ConfigFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   
-  const { register, handleSubmit, control, formState: { errors } } = useForm({
+  const { register, handleSubmit, formState: { errors } } = useForm({
     defaultValues: {
       githubOwner: initialConfig.githubOwner || "",
       githubRepo: initialConfig.githubRepo || "",
@@ -43,18 +42,12 @@ export function ConfigForm({ initialConfig, onSaved }: ConfigFormProps) {
         devChannel: data.devChannel ? "true" : "false",
       };
       
-      // Update configuration via API
-      const response = await fetch('/api/admin/config', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(configData),
-        credentials: 'include',
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to save configuration')
+      // Update each configuration value
+      for (const [key, value] of Object.entries(configData)) {
+        await fine.table("configurations")
+          .update({ value: String(value) })
+          .eq("key", key)
+          .select();
       }
       
       toast({
@@ -112,23 +105,12 @@ export function ConfigForm({ initialConfig, onSaved }: ConfigFormProps) {
           </div>
           
           <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Label htmlFor="githubToken">GitHub API Token (Optional)</Label>
-              <ShieldAlert className="h-4 w-4 text-amber-500" />
-            </div>
-            <Controller
-              name="githubToken"
-              control={control}
-              render={({ field }) => (
-                <SecureInput
-                  id="githubToken"
-                  placeholder="Personal access token for private repositories"
-                  value={field.value}
-                  onChange={field.onChange}
-                  name={field.name}
-                  disabled={isLoading}
-                />
-              )}
+            <Label htmlFor="githubToken">GitHub API Token (Optional)</Label>
+            <Input
+              id="githubToken"
+              type="password"
+              placeholder="Personal access token for private repositories"
+              {...register("githubToken")}
             />
             <p className="text-xs text-muted-foreground">
               Only required for private repositories or to increase API rate limits.
