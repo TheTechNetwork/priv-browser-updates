@@ -35,56 +35,27 @@ export function ConfigForm({ initialConfig, onSaved }: ConfigFormProps) {
     try {
       setIsLoading(true);
       
-      // Validate GitHub token if provided
-      if (data.githubToken && !isValidGithubToken(data.githubToken)) {
-        toast({
-          title: "Invalid GitHub Token",
-          description: "The GitHub token format appears to be invalid. Please check and try again.",
-          variant: "destructive",
-        });
-        setIsLoading(false);
-        return;
-      }
-      
-      // Convert boolean values to strings and encrypt sensitive data
+      // Convert boolean values to strings
       const configData = {
         ...data,
-        // Encrypt GitHub token before storing
-        githubToken: data.githubToken ? encryptToken(data.githubToken) : "",
         stableChannel: data.stableChannel ? "true" : "false",
         betaChannel: data.betaChannel ? "true" : "false",
         devChannel: data.devChannel ? "true" : "false",
       };
       
-      // Get the authentication token
-      const authToken = localStorage.getItem('github_auth_token');
-      if (!authToken) {
-        toast({
-          title: "Authentication Error",
-          description: "You must be logged in to save settings.",
-          variant: "destructive",
-        });
-        setIsLoading(false);
-        return;
-      }
-      
-      // Save to Cloudflare backend
-      const response = await fetch(`${window.location.origin}/api/config`, {
+      // Update configuration via API
+      const response = await fetch('/api/admin/config', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`,
         },
         body: JSON.stringify(configData),
+        credentials: 'include',
       });
       
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to save configuration');
+        throw new Error('Failed to save configuration')
       }
-      
-      // Also save to localStorage as a fallback
-      localStorage.setItem('app_config', JSON.stringify(configData));
       
       toast({
         title: "Settings saved",
@@ -96,9 +67,7 @@ export function ConfigForm({ initialConfig, onSaved }: ConfigFormProps) {
       console.error("Failed to save configuration:", error);
       toast({
         title: "Error",
-        description: typeof error === 'object' && error instanceof Error 
-          ? error.message 
-          : "Failed to save configuration. Please try again.",
+        description: "Failed to save configuration. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -163,8 +132,6 @@ export function ConfigForm({ initialConfig, onSaved }: ConfigFormProps) {
             />
             <p className="text-xs text-muted-foreground">
               Only required for private repositories or to increase API rate limits.
-              <br />
-              <span className="text-amber-500">Security note: Use tokens with minimal permissions (read-only access).</span>
             </p>
           </div>
           
