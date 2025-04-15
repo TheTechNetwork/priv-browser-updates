@@ -116,7 +116,7 @@ jobs:
           
           # Comment on PR with preview URL
           if [ "${{ github.event_name }}" == "pull_request" ]; then
-            PREVIEW_URL="https://$PREVIEW_NAME.${CLOUDFLARE_WORKER_DOMAIN:-workers.dev}"
+            PREVIEW_URL="https://$PREVIEW_NAME.bitbybit.workers.dev}"
             echo "preview_url=$PREVIEW_URL" >> $GITHUB_OUTPUT
             
             # Add comment to PR
