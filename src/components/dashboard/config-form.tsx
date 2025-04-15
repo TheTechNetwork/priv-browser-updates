@@ -19,7 +19,7 @@ export function ConfigForm({ initialConfig, onSaved }: ConfigFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   
-  const { register, handleSubmit, formState: { errors } } = useForm({
+  const { register, handleSubmit, control, formState: { errors } } = useForm({
     defaultValues: {
       githubOwner: initialConfig.githubOwner || "",
       githubRepo: initialConfig.githubRepo || "",
@@ -149,7 +149,7 @@ export function ConfigForm({ initialConfig, onSaved }: ConfigFormProps) {
             </div>
             <Controller
               name="githubToken"
-              control={register().control}
+              control={control}
               render={({ field }) => (
                 <SecureInput
                   id="githubToken"

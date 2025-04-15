@@ -1,4 +1,4 @@
-import { createRateLimiter } from './rate-limiter';
+import { createRateLimiter } from './utils/rate-limiter';
 import { UpdateService } from './update-service';
 
 export interface Env {
