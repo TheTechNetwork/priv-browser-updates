@@ -1,14 +1,13 @@
 import { useState } from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, ShieldAlert } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { fine } from "@/lib/fine";
 import { useToast } from "@/hooks/use-toast";
-import { SecureInput } from "@/components/auth/secure-input";
-import { encryptToken, decryptToken, isValidGithubToken } from "@/lib/secure-token";
 
 interface ConfigFormProps {
   initialConfig: Record<string, string>;
@@ -35,56 +34,21 @@ export function ConfigForm({ initialConfig, onSaved }: ConfigFormProps) {
     try {
       setIsLoading(true);
       
-      // Validate GitHub token if provided
-      if (data.githubToken && !isValidGithubToken(data.githubToken)) {
-        toast({
-          title: "Invalid GitHub Token",
-          description: "The GitHub token format appears to be invalid. Please check and try again.",
-          variant: "destructive",
-        });
-        setIsLoading(false);
-        return;
-      }
-      
-      // Convert boolean values to strings and encrypt sensitive data
+      // Convert boolean values to strings
       const configData = {
         ...data,
-        // Encrypt GitHub token before storing
-        githubToken: data.githubToken ? encryptToken(data.githubToken) : "",
         stableChannel: data.stableChannel ? "true" : "false",
         betaChannel: data.betaChannel ? "true" : "false",
         devChannel: data.devChannel ? "true" : "false",
       };
       
-      // Get the authentication token
-      const authToken = localStorage.getItem('github_auth_token');
-      if (!authToken) {
-        toast({
-          title: "Authentication Error",
-          description: "You must be logged in to save settings.",
-          variant: "destructive",
-        });
-        setIsLoading(false);
-        return;
+      // Update each configuration value
+      for (const [key, value] of Object.entries(configData)) {
+        await fine.table("configurations")
+          .update({ value: String(value) })
+          .eq("key", key)
+          .select();
       }
-      
-      // Save to Cloudflare backend
-      const response = await fetch(`${window.location.origin}/api/config`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`,
-        },
-        body: JSON.stringify(configData),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to save configuration');
-      }
-      
-      // Also save to localStorage as a fallback
-      localStorage.setItem('app_config', JSON.stringify(configData));
       
       toast({
         title: "Settings saved",
@@ -96,9 +60,7 @@ export function ConfigForm({ initialConfig, onSaved }: ConfigFormProps) {
       console.error("Failed to save configuration:", error);
       toast({
         title: "Error",
-        description: typeof error === 'object' && error instanceof Error 
-          ? error.message 
-          : "Failed to save configuration. Please try again.",
+        description: "Failed to save configuration. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -143,28 +105,15 @@ export function ConfigForm({ initialConfig, onSaved }: ConfigFormProps) {
           </div>
           
           <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Label htmlFor="githubToken">GitHub API Token (Optional)</Label>
-              <ShieldAlert className="h-4 w-4 text-amber-500" />
-            </div>
-            <Controller
-              name="githubToken"
-              control={register().control}
-              render={({ field }) => (
-                <SecureInput
-                  id="githubToken"
-                  placeholder="Personal access token for private repositories"
-                  value={field.value}
-                  onChange={field.onChange}
-                  name={field.name}
-                  disabled={isLoading}
-                />
-              )}
+            <Label htmlFor="githubToken">GitHub API Token (Optional)</Label>
+            <Input
+              id="githubToken"
+              type="password"
+              placeholder="Personal access token for private repositories"
+              {...register("githubToken")}
             />
             <p className="text-xs text-muted-foreground">
               Only required for private repositories or to increase API rate limits.
-              <br />
-              <span className="text-amber-500">Security note: Use tokens with minimal permissions (read-only access).</span>
             </p>
           </div>
           
