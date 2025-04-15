@@ -7,7 +7,8 @@ import {
   getUser,
   logout as gitHubLogout,
   getAuthorizationUrl,
-  checkUserRole
+  checkUserRole,
+  setApiBaseUrl
 } from "@/lib/github-auth";
 
 // Define the auth context type
@@ -17,8 +18,8 @@ interface AuthContextType {
   user: GitHubUser | null;
   userRole: UserRole;
   checkAccess: (requiredRoles: UserRole[]) => boolean;
-  login: () => void;
-  logout: () => void;
+  login: () => Promise<void>;
+  logout: () => Promise<void>;
 }
 
 // Create the auth context with default values
@@ -28,8 +29,8 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   userRole: UserRole.GUEST,
   checkAccess: () => false,
-  login: () => {},
-  logout: () => {},
+  login: async () => {},
+  logout: async () => {},
 });
 
 // Custom hook to use the auth context
@@ -50,15 +51,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Function to initiate GitHub login
-  const login = () => {
-    window.location.href = getAuthorizationUrl();
+  const login = async () => {
+    try {
+      // Set API base URL
+      setApiBaseUrl(window.location.origin);
+      
+      // Get authorization URL and redirect
+      const authUrl = await getAuthorizationUrl();
+      window.location.href = authUrl;
+    } catch (error) {
+      console.error("Error initiating login:", error);
+      throw error;
+    }
   };
 
   // Function to logout
-  const logout = () => {
-    gitHubLogout();
-    setUser(null);
-    setUserRole(UserRole.GUEST);
+  const logout = async () => {
+    try {
+      await gitHubLogout();
+      setUser(null);
+      setUserRole(UserRole.GUEST);
+    } catch (error) {
+      console.error("Error logging out:", error);
+      throw error;
+    }
   };
 
   // Initialize authentication on component mount
@@ -67,29 +83,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(true);
       
       try {
-        // Check if we're returning from GitHub OAuth
-        const urlParams = new URLSearchParams(window.location.search);
-        const code = urlParams.get("code");
+        // Set API base URL
+        setApiBaseUrl(window.location.origin);
         
-        if (code) {
-          // Handle the OAuth callback in a separate component
-          // We'll implement this later
-        } else {
-          // Check if user is already authenticated
-          if (isGitHubAuthenticated()) {
-            const userData = getUser();
-            if (userData) {
-              setUser(userData);
-              setUserRole(userData.role);
-            } else {
-              // Initialize auth and get user data
-              const userData = await initializeAuth();
-              if (userData) {
-                setUser(userData);
-                setUserRole(userData.role);
-              }
-            }
-          }
+        // Check if we're on the callback page
+        if (window.location.pathname === '/auth/callback') {
+          // Skip initialization on callback page
+          // The callback component will handle authentication
+          setIsLoading(false);
+          return;
+        }
+        
+        // Initialize auth and get user data
+        const userData = await initializeAuth();
+        if (userData) {
+          setUser(userData);
+          setUserRole(userData.role);
         }
       } catch (error) {
         console.error("Error initializing auth:", error);

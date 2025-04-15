@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
-import { exchangeCodeForToken, getAuthenticatedUser, saveAuthToken, saveUser } from "@/lib/github-auth";
+import { authenticateWithGitHub, setApiBaseUrl } from "@/lib/github-auth";
 
 const AuthCallback = () => {
   const [error, setError] = useState<string | null>(null);
@@ -10,6 +10,9 @@ const AuthCallback = () => {
   useEffect(() => {
     const handleCallback = async () => {
       try {
+        // Set API base URL
+        setApiBaseUrl(window.location.origin);
+        
         // Get the code from the URL
         const urlParams = new URLSearchParams(window.location.search);
         const code = urlParams.get("code");
@@ -20,17 +23,18 @@ const AuthCallback = () => {
           return;
         }
         
-        // Exchange the code for an access token
-        const token = await exchangeCodeForToken(code);
+        // Verify state parameter to prevent CSRF attacks
+        const savedState = sessionStorage.getItem("github_auth_state");
+        if (state !== savedState) {
+          setError("Invalid state parameter. This could be a CSRF attack attempt.");
+          return;
+        }
         
-        // Save the token
-        saveAuthToken(token);
+        // Clear the state from session storage
+        sessionStorage.removeItem("github_auth_state");
         
-        // Get the user information
-        const user = await getAuthenticatedUser(token);
-        
-        // Save the user
-        saveUser(user);
+        // Exchange the code for an access token and get user info
+        await authenticateWithGitHub(code);
         
         // Redirect to the home page
         navigate("/");

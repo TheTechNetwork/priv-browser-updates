@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Github } from "lucide-react";
+import { Loader2, Github, ShieldAlert } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 
 export default function LoginForm() {
@@ -21,10 +21,12 @@ export default function LoginForm() {
     }
   }, [isAuthenticated, navigate]);
 
-  const handleGitHubLogin = () => {
+  const handleGitHubLogin = async () => {
     setIsLoading(true);
     try {
-      login();
+      await login();
+      // The login function will redirect to GitHub
+      // We won't reach this point unless there's an error
     } catch (error) {
       console.error("GitHub login error:", error);
       toast({
@@ -47,11 +49,24 @@ export default function LoginForm() {
         </CardHeader>
         <CardContent className='space-y-6'>
           <div className="flex flex-col space-y-2 text-center">
+            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-yellow-100">
+              <ShieldAlert className="h-5 w-5 text-yellow-600" />
+            </div>
             <h3 className="text-lg font-medium">Secure Access Required</h3>
             <p className="text-sm text-muted-foreground">
               This application contains sensitive configuration data.
               Authentication is required to protect GitHub tokens and other secrets.
             </p>
+          </div>
+
+          <div className="rounded-md bg-blue-50 p-4">
+            <div className="flex">
+              <div className="ml-3 flex-1 md:flex md:justify-between">
+                <p className="text-sm text-blue-700">
+                  Only authorized GitHub users can access the settings page.
+                </p>
+              </div>
+            </div>
           </div>
 
           <Button
