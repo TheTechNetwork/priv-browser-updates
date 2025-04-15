@@ -1,6 +1,5 @@
 import { createRateLimiter } from './utils/rate-limiter';
 import { UpdateService } from './update-service';
-
 export interface Env {
   DB: D1Database;
   CACHE: KVNamespace;
@@ -10,176 +9,133 @@ export interface Env {
   ENCRYPTION_KEY: string;
   SESSION_SECRET: string;
   ALLOWED_ADMIN_USERS: string;
+  ALLOWED_ORIGINS: string;
+  AUTH_RATE_LIMIT: string;
+  API_RATE_LIMIT: string;
 }
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     
-    // Add CORS headers to all responses
-    const corsHeaders = {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-API-Key',
-    };
+    // Create rate limiters
+    const authRateLimiter = createRateLimiter({
+      limit: parseInt(env.AUTH_RATE_LIMIT || '10'),
+      window: 60, // 1 minute window
+      keyPrefix: 'auth_rate_limit',
+      kv: env.CACHE
+    });
     
-    // Handle OPTIONS requests for CORS
+    const apiRateLimiter = createRateLimiter({
+      limit: parseInt(env.API_RATE_LIMIT || '100'),
+      window: 60, // 1 minute window
+      keyPrefix: 'api_rate_limit',
+      kv: env.CACHE
+    });
+    
+    // Create update service
+    const updateService = new UpdateService(env.DB, env.CACHE);
+    
+    // Handle CORS preflight requests
     if (request.method === 'OPTIONS') {
-      return new Response(null, {
-        headers: corsHeaders
-      });
-    }
-    
-    // Apply rate limiting to API requests
-    if (url.pathname.startsWith('/api/')) {
-      const rateLimiter = createRateLimiter(env.CACHE, 60, 60 * 1000); // 60 requests per minute
-      const rateLimitResponse = await rateLimiter(request);
-      if (rateLimitResponse) {
-        return rateLimitResponse;
-      }
+      return handleCorsPreflightRequest(request, env);
     }
     
     // Handle update requests
     if (url.pathname === '/update') {
-      return handleUpdateRequest(request, env);
+      return updateService.handleUpdateRequest(request);
+    }
+    
+    // Handle authentication endpoints
+    if (url.pathname.startsWith('/auth/')) {
+      // Apply rate limiting to auth endpoints
+      const rateLimitResult = await authRateLimiter.limit(request);
+      if (!rateLimitResult.success) {
+        return new Response('Rate limit exceeded', { status: 429 });
+      }
+      
+      return handleAuthRequest(request, url, env);
     }
     
     // Handle API requests (for admin dashboard)
     if (url.pathname.startsWith('/api/')) {
-      const response = await handleApiRequest(request, url, env);
+      // Apply rate limiting to API endpoints
+      const rateLimitResult = await apiRateLimiter.limit(request);
+      if (!rateLimitResult.success) {
+        return new Response('Rate limit exceeded', { status: 429 });
+      }
       
-      // Add CORS headers to the response
-      const newHeaders = new Headers(response.headers);
-      Object.entries(corsHeaders).forEach(([key, value]) => {
-        newHeaders.set(key, value);
-      });
-      
-      return new Response(response.body, {
-        status: response.status,
-        statusText: response.statusText,
-        headers: newHeaders
-      });
+      return handleApiRequest(request, url, env);
     }
     
     // Return 404 for any other paths
-    return new Response('Not found', { 
-      status: 404,
-      headers: corsHeaders
-    });
+    return new Response('Not found', { status: 404 });
   }
 };
 
-async function handleUpdateRequest(request: Request, env: Env): Promise<Response> {
-  try {
-    const url = new URL(request.url);
-    const version = url.searchParams.get('version') || '';
-    const platform = url.searchParams.get('platform') || '';
-    const channel = url.searchParams.get('channel') || 'stable';
-    
-    // Get client IP and user agent
-    const ip = request.headers.get('CF-Connecting-IP') || '';
-    const userAgent = request.headers.get('User-Agent') || '';
-    
-    // Create update service instance
-    const updateService = new UpdateService(env.DB, env.CACHE);
-    
-    // Process the update request
-    const updateXml = await updateService.processUpdateRequest({
-      version,
-      platform,
-      channel,
-      ip,
-      userAgent
-    });
-    
-    // Return the XML response
-    return new Response(updateXml, {
-      headers: {
-        'Content-Type': 'application/xml',
-        'Cache-Control': 'no-cache'
-      }
-    });
-  } catch (error) {
-    console.error('Error processing update request:', error);
-    return new Response('Error processing update request', { status: 500 });
-  }
-}
-
-async function handleApiRequest(request: Request, url: URL, env: Env): Promise<Response> {
-  // Authentication endpoints don't require authentication
-  if (url.pathname.startsWith('/api/auth/')) {
-    return handleAuthRequest(request, url, env);
+// Handle CORS preflight requests
+function handleCorsPreflightRequest(request: Request, env: Env): Response {
+  const allowedOrigins = env.ALLOWED_ORIGINS ? env.ALLOWED_ORIGINS.split(',') : [];
+  const origin = request.headers.get('Origin') || '';
+  
+  // Check if the origin is allowed
+  const isAllowedOrigin = allowedOrigins.includes(origin) || allowedOrigins.includes('*');
+  
+  if (!isAllowedOrigin) {
+    return new Response('Not allowed', { status: 403 });
   }
   
-  // All other API endpoints require authentication
-  const authResult = await authenticateRequest(request, env);
-  
-  if (!authResult.authenticated) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' }
-    });
-  }
-  
-  // Configuration endpoints require admin access
-  if (url.pathname.startsWith('/api/config')) {
-    // Check if user is admin
-    if (!authResult.isAdmin) {
-      return new Response(JSON.stringify({ error: 'Forbidden: Admin access required' }), {
-        status: 403,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-    
-    return handleConfigRequest(request, url, env, authResult.user);
-  }
-  
-  // Example API endpoints
-  if (url.pathname === '/api/releases') {
-    const releases = await env.DB.prepare('SELECT * FROM releases').all();
-    return new Response(JSON.stringify(releases), {
-      headers: { 'Content-Type': 'application/json' }
-    });
-  }
-  
-  if (url.pathname === '/api/sync') {
-    // Trigger a sync with GitHub
-    // This would be implemented in a real application
-    return new Response(JSON.stringify({ success: true }), {
-      headers: { 'Content-Type': 'application/json' }
-    });
-  }
-  
-  return new Response(JSON.stringify({ error: 'API endpoint not found' }), { 
-    status: 404,
-    headers: { 'Content-Type': 'application/json' }
+  return new Response(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Credentials': 'true',
+      'Access-Control-Max-Age': '86400',
+    },
   });
 }
 
+// Handle authentication requests
 async function handleAuthRequest(request: Request, url: URL, env: Env): Promise<Response> {
-  // GitHub OAuth configuration endpoint
-  if (url.pathname === '/api/auth/config' && request.method === 'GET') {
-    return new Response(JSON.stringify({
-      clientId: env.GITHUB_CLIENT_ID,
-      redirectUri: `${new URL(request.url).origin}/auth/callback`,
-    }), {
-      headers: { 'Content-Type': 'application/json' }
-    });
+  // GitHub OAuth flow
+  if (url.pathname === '/auth/github/login') {
+    // Generate a random state parameter for CSRF protection
+    const state = crypto.randomUUID();
+    
+    // Store the state in KV for validation later
+    await env.SESSION_STORE.put(`github_state:${state}`, 'true', { expirationTtl: 600 }); // 10 minutes
+    
+    // Redirect to GitHub OAuth
+    const redirectUrl = new URL('https://github.com/login/oauth/authorize');
+    redirectUrl.searchParams.set('client_id', env.GITHUB_CLIENT_ID);
+    redirectUrl.searchParams.set('redirect_uri', `${url.origin}/auth/github/callback`);
+    redirectUrl.searchParams.set('state', state);
+    redirectUrl.searchParams.set('scope', 'read:user');
+    
+    return Response.redirect(redirectUrl.toString(), 302);
   }
   
-  // GitHub OAuth callback endpoint
-  if (url.pathname === '/api/auth/github' && request.method === 'POST') {
+  if (url.pathname === '/auth/github/callback') {
+    const code = url.searchParams.get('code');
+    const state = url.searchParams.get('state');
+    
+    if (!code || !state) {
+      return new Response('Missing code or state parameter', { status: 400 });
+    }
+    
+    // Verify the state parameter to prevent CSRF attacks
+    const storedState = await env.SESSION_STORE.get(`github_state:${state}`);
+    if (!storedState) {
+      return new Response('Invalid state parameter', { status: 400 });
+    }
+    
+    // Delete the state to prevent replay attacks
+    await env.SESSION_STORE.delete(`github_state:${state}`);
+    
     try {
-      const { code } = await request.json();
-      
-      if (!code) {
-        return new Response(JSON.stringify({ error: 'Authorization code is required' }), {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-      
-      // Exchange code for access token
+      // Exchange the code for an access token
       const tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
         method: 'POST',
         headers: {
@@ -190,267 +146,339 @@ async function handleAuthRequest(request: Request, url: URL, env: Env): Promise<
           client_id: env.GITHUB_CLIENT_ID,
           client_secret: env.GITHUB_CLIENT_SECRET,
           code,
+          redirect_uri: `${url.origin}/auth/github/callback`,
         }),
       });
       
       const tokenData = await tokenResponse.json();
       
-      if (tokenData.error || !tokenData.access_token) {
-        return new Response(JSON.stringify({ 
-          error: tokenData.error_description || 'Failed to exchange code for token' 
-        }), {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' }
-        });
+      if (tokenData.error) {
+        console.error('GitHub OAuth error:', tokenData.error);
+        return new Response(`GitHub OAuth error: ${tokenData.error}`, { status: 400 });
       }
       
-      // Get user data from GitHub
+      const accessToken = tokenData.access_token;
+      
+      // Get the user's GitHub profile
       const userResponse = await fetch('https://api.github.com/user', {
         headers: {
-          'Authorization': `token ${tokenData.access_token}`,
-          'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': 'Browser-Updates-Server',
+          'Authorization': `token ${accessToken}`,
+          'User-Agent': 'Browser-Update-Server',
         },
       });
       
       const userData = await userResponse.json();
       
-      if (userResponse.status !== 200) {
-        return new Response(JSON.stringify({ error: 'Failed to get user data from GitHub' }), {
-          status: 500,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
+      // Check if the user is allowed to access admin features
+      const allowedAdminUsers = env.ALLOWED_ADMIN_USERS ? env.ALLOWED_ADMIN_USERS.split(',') : [];
+      const isAdmin = allowedAdminUsers.includes(userData.login);
       
-      // Check if user is an admin
-      const allowedAdmins = env.ALLOWED_ADMIN_USERS.split(',').map(username => username.trim());
-      const isAdmin = allowedAdmins.includes(userData.login);
-      
-      // Create session token (random UUID)
-      const sessionToken = crypto.randomUUID();
-      
-      // Store session data in KV
+      // Create a session
+      const sessionId = crypto.randomUUID();
       const sessionData = {
-        user: {
-          id: userData.id,
-          login: userData.login,
-          name: userData.name,
-          avatar_url: userData.avatar_url,
-        },
-        github_token: tokenData.access_token,
-        created: Date.now(),
-        isAdmin,
+        id: sessionId,
+        user_id: userData.id.toString(),
+        user_login: userData.login,
+        user_name: userData.name || userData.login,
+        user_avatar: userData.avatar_url,
+        is_admin: isAdmin ? 1 : 0,
+        created_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
       };
       
-      // Store session in KV with expiry (7 days)
-      await env.SESSION_STORE.put(`session:${sessionToken}`, JSON.stringify(sessionData), {
-        expirationTtl: 60 * 60 * 24 * 7, // 7 days in seconds
+      // Store the session in KV
+      await env.SESSION_STORE.put(`session:${sessionId}`, JSON.stringify(sessionData), {
+        expirationTtl: 7 * 24 * 60 * 60, // 7 days
       });
       
-      // Log authentication event
+      // Store the session in the database for audit purposes
       await env.DB.prepare(`
-        INSERT INTO audit_logs (action, entity, entity_id, user, details, created_at)
-        VALUES (?, ?, ?, ?, ?, datetime('now'))
+        INSERT INTO sessions (id, user_id, user_login, user_name, user_avatar, is_admin, created_at, expires_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `).bind(
-        'login',
-        'user',
-        userData.id.toString(),
-        userData.login,
-        JSON.stringify({ ip: request.headers.get('CF-Connecting-IP') || 'unknown' })
+        sessionId,
+        sessionData.user_id,
+        sessionData.user_login,
+        sessionData.user_name,
+        sessionData.user_avatar,
+        sessionData.is_admin,
+        sessionData.created_at,
+        sessionData.expires_at
       ).run();
       
-      // Return session token and user data
-      return new Response(JSON.stringify({
-        token: sessionToken,
-        user: {
-          id: userData.id,
-          login: userData.login,
-          name: userData.name,
-          avatar_url: userData.avatar_url,
+      // Log the authentication event
+      await env.DB.prepare(`
+        INSERT INTO auditLogs (event_type, user_id, ip_address, details)
+        VALUES (?, ?, ?, ?)
+      `).bind(
+        'login',
+        sessionData.user_id,
+        request.headers.get('CF-Connecting-IP') || '',
+        JSON.stringify({ method: 'github_oauth' })
+      ).run();
+      
+      // Set the session cookie
+      const cookie = `session=${sessionId}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${7 * 24 * 60 * 60}`;
+      
+      // Redirect to the dashboard
+      return new Response(null, {
+        status: 302,
+        headers: {
+          'Location': '/',
+          'Set-Cookie': cookie,
         },
-        isAdmin,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-      }), {
-        headers: { 'Content-Type': 'application/json' }
       });
     } catch (error) {
-      console.error('Error in GitHub OAuth callback:', error);
-      return new Response(JSON.stringify({ error: 'Internal server error' }), {
+      console.error('Error during GitHub OAuth:', error);
+      return new Response('Error during GitHub OAuth', { status: 500 });
+    }
+  }
+  
+  if (url.pathname === '/auth/logout') {
+    // Get the session cookie
+    const cookies = request.headers.get('Cookie') || '';
+    const sessionCookie = cookies.split(';').find(c => c.trim().startsWith('session='));
+    
+    if (sessionCookie) {
+      const sessionId = sessionCookie.split('=')[1].trim();
+      
+      // Delete the session from KV
+      await env.SESSION_STORE.delete(`session:${sessionId}`);
+      
+      // Log the logout event
+      const sessionData = await env.SESSION_STORE.get(`session:${sessionId}`);
+      if (sessionData) {
+        const session = JSON.parse(sessionData);
+        await env.DB.prepare(`
+          INSERT INTO auditLogs (event_type, user_id, ip_address, details)
+          VALUES (?, ?, ?, ?)
+        `).bind(
+          'logout',
+          session.user_id,
+          request.headers.get('CF-Connecting-IP') || '',
+          JSON.stringify({ method: 'explicit_logout' })
+        ).run();
+      }
+    }
+    
+    // Clear the session cookie
+    const clearCookie = 'session=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0';
+    
+    // Redirect to the home page
+    return new Response(null, {
+      status: 302,
+      headers: {
+        'Location': '/',
+        'Set-Cookie': clearCookie,
+      },
+    });
+  }
+  
+  return new Response('Auth endpoint not found', { status: 404 });
+}
+
+async function handleApiRequest(request: Request, url: URL, env: Env): Promise<Response> {
+  // Get the session cookie
+  const cookies = request.headers.get('Cookie') || '';
+  const sessionCookie = cookies.split(';').find(c => c.trim().startsWith('session='));
+  
+  if (!sessionCookie) {
+    return new Response('Unauthorized', { status: 401 });
+  }
+  
+  const sessionId = sessionCookie.split('=')[1].trim();
+  const sessionData = await env.SESSION_STORE.get(`session:${sessionId}`);
+  
+  if (!sessionData) {
+    return new Response('Unauthorized', { status: 401 });
+  }
+  
+  const session = JSON.parse(sessionData);
+  
+  // Check if the session has expired
+  if (new Date(session.expires_at) < new Date()) {
+    await env.SESSION_STORE.delete(`session:${sessionId}`);
+    return new Response('Session expired', { status: 401 });
+  }
+  
+  // For admin endpoints, check if the user is an admin
+  if (url.pathname.startsWith('/api/admin/') && !session.is_admin) {
+    // Log unauthorized access attempt
+    await env.DB.prepare(`
+      INSERT INTO auditLogs (event_type, user_id, ip_address, details)
+      VALUES (?, ?, ?, ?)
+    `).bind(
+      'unauthorized_access',
+      session.user_id,
+      request.headers.get('CF-Connecting-IP') || '',
+      JSON.stringify({ endpoint: url.pathname })
+    ).run();
+    
+    return new Response('Forbidden', { status: 403 });
+  }
+  
+  // Handle API endpoints
+  if (url.pathname === '/api/user') {
+    // Return the user's profile
+    return new Response(JSON.stringify({
+      id: session.user_id,
+      login: session.user_login,
+      name: session.user_name,
+      avatar: session.user_avatar,
+      is_admin: session.is_admin === 1,
+    }), {
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': request.headers.get('Origin') || '',
+        'Access-Control-Allow-Credentials': 'true',
+      }
+    });
+  }
+  
+  // Admin endpoints
+  if (url.pathname === '/api/admin/config' && request.method === 'GET') {
+    // Get all configuration values
+    const configs = await env.DB.prepare('SELECT * FROM configurations').all();
+    return new Response(JSON.stringify(configs.results), {
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': request.headers.get('Origin') || '',
+        'Access-Control-Allow-Credentials': 'true',
+      }
+    });
+  }
+  
+  if (url.pathname === '/api/admin/config' && request.method === 'POST') {
+    try {
+      const data = await request.json();
+      
+      // Update each configuration value
+      for (const [key, value] of Object.entries(data)) {
+        await env.DB.prepare(`
+          UPDATE configurations
+          SET value = ?, updated_at = ?, updated_by = ?
+          WHERE key = ?
+        `).bind(
+          String(value),
+          new Date().toISOString(),
+          session.user_login,
+          key
+        ).run();
+      }
+      
+      // Log the configuration update
+      await env.DB.prepare(`
+        INSERT INTO auditLogs (event_type, user_id, ip_address, details)
+        VALUES (?, ?, ?, ?)
+      `).bind(
+        'config_update',
+        session.user_id,
+        request.headers.get('CF-Connecting-IP') || '',
+        JSON.stringify(data)
+      ).run();
+      
+      return new Response(JSON.stringify({ success: true }), {
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': request.headers.get('Origin') || '',
+          'Access-Control-Allow-Credentials': 'true',
+        }
+      });
+    } catch (error) {
+      console.error('Error updating configuration:', error);
+      return new Response(JSON.stringify({ error: 'Failed to update configuration' }), {
         status: 500,
-        headers: { 'Content-Type': 'application/json' }
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': request.headers.get('Origin') || '',
+          'Access-Control-Allow-Credentials': 'true',
+        }
       });
     }
   }
   
-  // Verify authentication token
-  if (url.pathname === '/api/auth/verify' && request.method === 'GET') {
-    const authResult = await authenticateRequest(request, env);
+  if (url.pathname === '/api/admin/releases' && request.method === 'GET') {
+    const releases = await env.DB.prepare('SELECT * FROM releases ORDER BY id DESC').all();
+    return new Response(JSON.stringify(releases.results), {
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': request.headers.get('Origin') || '',
+        'Access-Control-Allow-Credentials': 'true',
+      }
+    });
+  }
+  
+  if (url.pathname === '/api/admin/sync' && request.method === 'POST') {
+    // Trigger a sync with GitHub
+    try {
+      const updateService = new UpdateService(env.DB, env.CACHE);
+      await updateService.syncReleasesFromGitHub();
+      
+      // Log the sync event
+      await env.DB.prepare(`
+        INSERT INTO auditLogs (event_type, user_id, ip_address, details)
+        VALUES (?, ?, ?, ?)
+      `).bind(
+        'github_sync',
+        session.user_id,
+        request.headers.get('CF-Connecting-IP') || '',
+        '{}'
+      ).run();
+      
+      return new Response(JSON.stringify({ success: true }), {
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': request.headers.get('Origin') || '',
+          'Access-Control-Allow-Credentials': 'true',
+        }
+      });
+    } catch (error) {
+      console.error('Error syncing with GitHub:', error);
+      return new Response(JSON.stringify({ error: 'Failed to sync with GitHub' }), {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': request.headers.get('Origin') || '',
+          'Access-Control-Allow-Credentials': 'true',
+        }
+      });
+    }
+  }
+  
+  if (url.pathname === '/api/admin/audit-logs' && request.method === 'GET') {
+    const page = parseInt(url.searchParams.get('page') || '1');
+    const limit = parseInt(url.searchParams.get('limit') || '50');
+    const offset = (page - 1) * limit;
+    
+    const logs = await env.DB.prepare(`
+      SELECT * FROM auditLogs
+      ORDER BY created_at DESC
+      LIMIT ? OFFSET ?
+    `).bind(limit, offset).all();
+    
+    const count = await env.DB.prepare('SELECT COUNT(*) as count FROM auditLogs').first();
     
     return new Response(JSON.stringify({
-      authenticated: authResult.authenticated,
-      user: authResult.user,
-      isAdmin: authResult.isAdmin,
-      expiresAt: authResult.expiresAt,
+      logs: logs.results,
+      total: count ? count.count : 0,
+      page,
+      limit,
     }), {
-      headers: { 'Content-Type': 'application/json' }
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': request.headers.get('Origin') || '',
+        'Access-Control-Allow-Credentials': 'true',
+      }
     });
   }
   
-  // Logout endpoint
-  if (url.pathname === '/api/auth/logout' && request.method === 'POST') {
-    const authHeader = request.headers.get('Authorization');
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.replace('Bearer ', '');
-      await env.SESSION_STORE.delete(`session:${token}`);
-    }
-    
-    return new Response(JSON.stringify({ success: true }), {
-      headers: { 'Content-Type': 'application/json' }
-    });
-  }
-  
-  return new Response(JSON.stringify({ error: 'Auth endpoint not found' }), {
+  return new Response('API endpoint not found', { 
     status: 404,
-    headers: { 'Content-Type': 'application/json' }
+    headers: {
+      'Access-Control-Allow-Origin': request.headers.get('Origin') || '',
+      'Access-Control-Allow-Credentials': 'true',
+    }
   });
-}
-
-async function handleConfigRequest(
-  request: Request, 
-  url: URL, 
-  env: Env, 
-  user: any
-): Promise<Response> {
-  // Get configuration
-  if (request.method === 'GET') {
-    try {
-      const { results } = await env.DB.prepare(
-        'SELECT key, value FROM configurations'
-      ).all();
-      
-      const config: Record<string, string> = {};
-      for (const row of results) {
-        config[row.key] = row.value;
-      }
-      
-      return new Response(JSON.stringify(config), {
-        headers: { 'Content-Type': 'application/json' }
-      });
-    } catch (error) {
-      console.error('Error fetching config:', error);
-      return new Response(JSON.stringify({ error: 'Failed to fetch configuration' }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-  }
-  
-  // Update configuration
-  if (request.method === 'POST') {
-    try {
-      const config = await request.json();
-      
-      // Begin transaction
-      const stmt = env.DB.prepare('BEGIN TRANSACTION');
-      await stmt.run();
-      
-      try {
-        // Update or insert each configuration value
-        for (const [key, value] of Object.entries(config)) {
-          if (typeof value !== 'string') continue;
-          
-          await env.DB.prepare(
-            `INSERT INTO configurations (key, value, updated_by, updated_at)
-             VALUES (?, ?, ?, ?)
-             ON CONFLICT(key) DO UPDATE SET
-             value = excluded.value,
-             updated_by = excluded.updated_by,
-             updated_at = excluded.updated_at`
-          ).bind(key, value, user.login, new Date().toISOString()).run();
-        }
-        
-        // Commit transaction
-        await env.DB.prepare('COMMIT').run();
-        
-        // Log configuration update
-        await env.DB.prepare(`
-          INSERT INTO audit_logs (action, entity, entity_id, user, details, created_at)
-          VALUES (?, ?, ?, ?, ?, datetime('now'))
-        `).bind(
-          'update',
-          'configuration',
-          'global',
-          user.login,
-          JSON.stringify({ 
-            keys: Object.keys(config),
-            ip: request.headers.get('CF-Connecting-IP') || 'unknown'
-          })
-        ).run();
-        
-        return new Response(JSON.stringify({ success: true }), {
-          headers: { 'Content-Type': 'application/json' }
-        });
-      } catch (error) {
-        // Rollback on error
-        await env.DB.prepare('ROLLBACK').run();
-        throw error;
-      }
-    } catch (error) {
-      console.error('Error saving config:', error);
-      return new Response(JSON.stringify({ error: 'Failed to save configuration' }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-  }
-  
-  return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-    status: 405,
-    headers: { 'Content-Type': 'application/json' }
-  });
-}
-
-async function authenticateRequest(request: Request, env: Env): Promise<{
-  authenticated: boolean;
-  user?: any;
-  isAdmin?: boolean;
-  expiresAt?: string;
-}> {
-  const authHeader = request.headers.get('Authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return { authenticated: false };
-  }
-
-  const token = authHeader.replace('Bearer ', '');
-  try {
-    const payload = await env.SESSION_STORE.get(`session:${token}`);
-    if (!payload) {
-      return { authenticated: false };
-    }
-
-    const session = JSON.parse(payload);
-    
-    // Check if session is expired (7 days)
-    const expiryMs = 7 * 24 * 60 * 60 * 1000;
-    if (Date.now() - session.created > expiryMs) {
-      await env.SESSION_STORE.delete(`session:${token}`);
-      return { authenticated: false };
-    }
-
-    // Check if user is admin
-    const allowedAdmins = env.ALLOWED_ADMIN_USERS.split(',').map(username => username.trim());
-    const isAdmin = allowedAdmins.includes(session.user.login);
-
-    return {
-      authenticated: true,
-      user: session.user,
-      isAdmin,
-      expiresAt: new Date(session.created + expiryMs).toISOString(),
-    };
-  } catch (error) {
-    console.error('Error authenticating request:', error);
-    return { authenticated: false };
-  }
 }
 
 async function logUpdateRequest(request: {
