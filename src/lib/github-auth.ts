@@ -1,16 +1,16 @@
 import { Octokit } from "@octokit/rest";
-import { createOAuthAppAuth } from "@octokit/auth-oauth-app";
 
-// GitHub OAuth App credentials
-// In a production environment, these would be environment variables
-const GITHUB_CLIENT_ID = "your-github-client-id";
-const GITHUB_CLIENT_SECRET = "your-github-client-secret";
-const GITHUB_REDIRECT_URI = "http://localhost:12000/auth/callback";
-const GITHUB_SCOPES = ["read:user", "user:email"];
+// API base URL - will be set dynamically based on environment
+let API_BASE_URL = '';
 
 // Storage keys
 const TOKEN_STORAGE_KEY = "github_auth_token";
 const USER_STORAGE_KEY = "github_user";
+
+// Set the API base URL based on the current environment
+export function setApiBaseUrl(url: string) {
+  API_BASE_URL = url;
+}
 
 // User roles
 export enum UserRole {
@@ -29,17 +29,44 @@ export interface GitHubUser {
   role: UserRole;
 }
 
+interface AuthConfig {
+  clientId: string;
+  redirectUri: string;
+}
+
+/**
+ * Get GitHub OAuth configuration
+ */
+export async function getAuthConfig(): Promise<AuthConfig> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/auth/config`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch auth config: ${response.statusText}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("Failed to get auth config:", error);
+    throw new Error("Failed to get authentication configuration");
+  }
+}
+
 /**
  * Get the GitHub authorization URL
  */
-export function getAuthorizationUrl(): string {
+export async function getAuthorizationUrl(): Promise<string> {
+  const config = await getAuthConfig();
+  const state = generateRandomState();
+  
   const params = new URLSearchParams({
-    client_id: GITHUB_CLIENT_ID,
-    redirect_uri: GITHUB_REDIRECT_URI,
-    scope: GITHUB_SCOPES.join(" "),
-    state: generateRandomState(),
+    client_id: config.clientId,
+    redirect_uri: config.redirectUri,
+    scope: "read:user user:email",
+    state,
   });
-
+  
+  // Store state for verification
+  sessionStorage.setItem("github_auth_state", state);
+  
   return `https://github.com/login/oauth/authorize?${params.toString()}`;
 }
 
@@ -51,71 +78,96 @@ function generateRandomState(): string {
 }
 
 /**
- * Exchange the authorization code for an access token
+ * Exchange the authorization code for an access token and user info
  */
-export async function exchangeCodeForToken(code: string): Promise<string> {
+export async function authenticateWithGitHub(code: string): Promise<{
+  token: string;
+  user: GitHubUser;
+  isAdmin: boolean;
+  expiresAt: string;
+}> {
   try {
-    const response = await fetch("https://github.com/login/oauth/access_token", {
-      method: "POST",
+    const response = await fetch(`${API_BASE_URL}/api/auth/github`, {
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
+        'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        client_id: GITHUB_CLIENT_ID,
-        client_secret: GITHUB_CLIENT_SECRET,
-        code,
-        redirect_uri: GITHUB_REDIRECT_URI,
-      }),
+      body: JSON.stringify({ code }),
     });
 
-    const data = await response.json();
-    
-    if (data.error) {
-      throw new Error(data.error_description || "Failed to exchange code for token");
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Authentication failed');
     }
 
-    return data.access_token;
+    const authData = await response.json();
+    
+    // Create user object with role
+    const user: GitHubUser = {
+      ...authData.user,
+      role: authData.isAdmin ? UserRole.ADMIN : UserRole.USER,
+    };
+    
+    // Save auth data
+    saveAuthToken(authData.token);
+    saveUser(user);
+    
+    return {
+      token: authData.token,
+      user,
+      isAdmin: authData.isAdmin,
+      expiresAt: authData.expiresAt,
+    };
   } catch (error) {
-    console.error("Error exchanging code for token:", error);
-    throw error;
+    console.error("Failed to authenticate with GitHub:", error);
+    throw new Error("Authentication failed");
   }
 }
 
 /**
- * Get the authenticated user's information
+ * Verify a session token
  */
-export async function getAuthenticatedUser(token: string): Promise<GitHubUser> {
+export async function verifySession(): Promise<{
+  authenticated: boolean;
+  user?: GitHubUser;
+  isAdmin?: boolean;
+}> {
+  const token = getAuthToken();
+  if (!token) {
+    return { authenticated: false };
+  }
+  
   try {
-    const octokit = new Octokit({
-      auth: token,
+    const response = await fetch(`${API_BASE_URL}/api/auth/verify`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
     });
 
-    const { data: user } = await octokit.users.getAuthenticated();
+    const data = await response.json();
     
-    // Get user's email if not public
-    let email = user.email;
-    if (!email) {
-      const { data: emails } = await octokit.users.listEmailsForAuthenticatedUser();
-      const primaryEmail = emails.find(e => e.primary);
-      email = primaryEmail?.email || null;
+    if (data.authenticated && data.user) {
+      // Update stored user with latest data
+      const user: GitHubUser = {
+        ...data.user,
+        role: data.isAdmin ? UserRole.ADMIN : UserRole.USER,
+      };
+      
+      saveUser(user);
+      
+      return {
+        authenticated: true,
+        user,
+        isAdmin: data.isAdmin,
+      };
     }
-
-    // In a real application, you would check if the user is an admin
-    // For now, we'll consider all authenticated users as admins
-    const role = UserRole.ADMIN;
-
-    return {
-      id: user.id,
-      login: user.login,
-      name: user.name,
-      avatar_url: user.avatar_url,
-      email,
-      role,
-    };
+    
+    // If not authenticated, clear local storage
+    removeAuthToken();
+    return { authenticated: false };
   } catch (error) {
-    console.error("Error getting authenticated user:", error);
-    throw error;
+    console.error("Failed to verify session:", error);
+    return { authenticated: false };
   }
 }
 
@@ -174,32 +226,41 @@ export function checkUserRole(requiredRoles: UserRole[]): boolean {
 /**
  * Logout the user
  */
-export function logout(): void {
+export async function logout(): Promise<void> {
+  const token = getAuthToken();
+  if (token) {
+    try {
+      await fetch(`${API_BASE_URL}/api/auth/logout`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+    } catch (error) {
+      console.error("Error logging out:", error);
+    }
+  }
+  
   removeAuthToken();
 }
 
 /**
  * Initialize GitHub authentication
- * Check if the user is already authenticated and fetch user data if needed
+ * Check if the user is already authenticated and verify session
  */
 export async function initializeAuth(): Promise<GitHubUser | null> {
-  const token = getAuthToken();
-  
-  if (!token) {
-    return null;
-  }
-  
   try {
-    // If we have a user in storage, return it
-    const storedUser = getUser();
-    if (storedUser) {
-      return storedUser;
+    // Set API base URL based on current location
+    setApiBaseUrl(window.location.origin);
+    
+    // Verify session with backend
+    const { authenticated, user } = await verifySession();
+    
+    if (authenticated && user) {
+      return user;
     }
     
-    // Otherwise, fetch the user data
-    const user = await getAuthenticatedUser(token);
-    saveUser(user);
-    return user;
+    return null;
   } catch (error) {
     console.error("Error initializing auth:", error);
     removeAuthToken();

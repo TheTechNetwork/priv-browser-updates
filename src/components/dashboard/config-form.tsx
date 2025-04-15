@@ -56,8 +56,34 @@ export function ConfigForm({ initialConfig, onSaved }: ConfigFormProps) {
         devChannel: data.devChannel ? "true" : "false",
       };
       
-      // In a real application, you would save this to your database
-      // For now, we'll use localStorage as a temporary storage solution
+      // Get the authentication token
+      const authToken = localStorage.getItem('github_auth_token');
+      if (!authToken) {
+        toast({
+          title: "Authentication Error",
+          description: "You must be logged in to save settings.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+      
+      // Save to Cloudflare backend
+      const response = await fetch(`${window.location.origin}/api/config`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+        body: JSON.stringify(configData),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to save configuration');
+      }
+      
+      // Also save to localStorage as a fallback
       localStorage.setItem('app_config', JSON.stringify(configData));
       
       toast({
@@ -70,7 +96,9 @@ export function ConfigForm({ initialConfig, onSaved }: ConfigFormProps) {
       console.error("Failed to save configuration:", error);
       toast({
         title: "Error",
-        description: "Failed to save configuration. Please try again.",
+        description: typeof error === 'object' && error instanceof Error 
+          ? error.message 
+          : "Failed to save configuration. Please try again.",
         variant: "destructive",
       });
     } finally {

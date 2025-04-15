@@ -19,8 +19,51 @@ const Settings = () => {
     try {
       setIsLoading(true);
       
-      // In a real application, you would fetch this from your database
-      // For now, we'll use localStorage as a temporary storage solution
+      // Get the authentication token
+      const authToken = localStorage.getItem('github_auth_token');
+      if (!authToken) {
+        toast({
+          title: "Authentication Error",
+          description: "You must be logged in to view settings.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+      
+      // Try to fetch from Cloudflare backend
+      try {
+        const response = await fetch(`${window.location.origin}/api/config`, {
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+          },
+        });
+        
+        if (response.ok) {
+          const configData = await response.json();
+          const configMap: Record<string, string> = {};
+          
+          // Process each config item
+          Object.entries(configData).forEach(([key, value]) => {
+            // Decrypt GitHub token if present
+            if (key === "githubToken" && value) {
+              configMap[key] = decryptToken(value as string);
+            } else {
+              configMap[key] = value as string;
+            }
+          });
+          
+          setConfig(configMap);
+          
+          // Also update localStorage as a fallback
+          localStorage.setItem('app_config', JSON.stringify(configData));
+          return;
+        }
+      } catch (apiError) {
+        console.error("Failed to fetch from API, falling back to localStorage:", apiError);
+      }
+      
+      // Fallback to localStorage if API fails
       const storedConfig = localStorage.getItem('app_config');
       
       if (storedConfig) {
