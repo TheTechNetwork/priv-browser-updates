@@ -13,6 +13,8 @@
     "strictPropertyInitialization": false,
     "noImplicitThis": false,
     "alwaysStrict": false,
+    "esModuleInterop": true,
+    "jsx": "react",
 
     "baseUrl": ".",
     "paths": {
