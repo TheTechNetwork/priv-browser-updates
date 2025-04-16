@@ -16,7 +16,9 @@ const config = {
   testMatch: [
     '**/src/__tests__/lib/utils.test.ts',
     '**/src/__tests__/lib/github.mock.test.ts',
+    '**/src/__tests__/lib/github-additional.test.ts',
     '**/src/__tests__/lib/update-service.mock.test.ts',
+    '**/src/__tests__/lib/update-service-full.test.ts',
     '**/src/__tests__/lib/use-toast.test.ts',
     '**/src/__tests__/hooks/use-mobile.test.tsx',
     '**/src/__tests__/worker/deployment.test.ts',
