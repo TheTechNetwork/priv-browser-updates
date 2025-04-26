@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { MoonIcon, SunIcon, GithubIcon, Settings, BarChart3 } from "lucide-react";
-import { useTheme } from "@/components/layout/theme-provider";
+import { MoonIcon, SunIcon, GithubIcon } from "lucide-react";
+import { useTheme } from "@/components/layout/theme-context";
 
 export function Header() {
   const { theme, setTheme } = useTheme();

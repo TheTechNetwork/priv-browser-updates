@@ -1,55 +1,54 @@
 import { describe, expect, it, jest, beforeEach } from '@jest/globals';
+import type { ExecutionContext } from "@cloudflare/workers-types";
 
 // Define types for Cloudflare Worker environment
-interface D1Database {
-  prepare: jest.Mock<any, any>;
-  bind: jest.Mock<any, any>;
-  all: jest.Mock<any, any>;
-  run: jest.Mock<any, any>;
+interface MockD1Database {
+  prepare: jest.Mock;
+  bind: jest.Mock;
+  all: jest.Mock;
+  run: jest.Mock;
 }
 
-interface KVNamespace {
-  get: jest.Mock<any, any>;
-  put: jest.Mock<any, any>;
+interface MockKVNamespace {
+  get: jest.Mock;
+  put: jest.Mock;
 }
 
-interface Env {
-  DB: D1Database;
-  CACHE: KVNamespace;
-}
-
-interface ExecutionContext {
-  waitUntil: jest.Mock<any, any>;
+interface MockEnv {
+  DB: MockD1Database;
+  CACHE: MockKVNamespace;
 }
 
 // Mock the D1Database and KVNamespace
-const mockD1Database: D1Database = {
+const mockD1Database: MockD1Database = {
   prepare: jest.fn().mockReturnThis(),
   bind: jest.fn().mockReturnThis(),
-  all: jest.fn<any, any>().mockResolvedValue({ results: [] }),
-  run: jest.fn<any, any>().mockResolvedValue(undefined)
+  all: jest.fn().mockResolvedValue({ results: [] }),
+  run: jest.fn().mockResolvedValue({ success: true })
 };
 
-const mockKVNamespace: KVNamespace = {
-  get: jest.fn<any, any>(),
-  put: jest.fn<any, any>()
+const mockKVNamespace: MockKVNamespace = {
+  get: jest.fn().mockResolvedValue(null),
+  put: jest.fn().mockResolvedValue(undefined)
 };
 
 // Mock environment
-const mockEnv: Env = {
+const mockEnv: MockEnv = {
   DB: mockD1Database,
   CACHE: mockKVNamespace
 };
 
 // Mock execution context
 const mockCtx: ExecutionContext = {
-  waitUntil: jest.fn<any, any>()
+  waitUntil: jest.fn(),
+  passThroughOnException: jest.fn(),
+  props: {}
 };
 
 // Mock the worker module
 jest.mock('../../../worker/src/index', () => ({
   default: {
-    fetch: jest.fn().mockImplementation(async (request: Request, env: Env) => {
+    fetch: jest.fn().mockImplementation(async (request: Request) => {
       const url = new URL(request.url);
       
       if (url.pathname === '/update') {
@@ -129,7 +128,7 @@ describe('Cloudflare Worker', () => {
   describe('API endpoints', () => {
     it('should handle /api/releases endpoint correctly', async () => {
       // Mock database response for releases
-      (mockD1Database.all as jest.Mock<any, any>).mockResolvedValueOnce({
+      (mockD1Database.all as jest.Mock).mockResolvedValueOnce({
         results: [
           { id: 1, version: '1.2.3', platform: 'win', channel: 'stable' }
         ]

@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { ConfigForm } from "@/components/dashboard/config-form";
 import { Loader2 } from "lucide-react";
-import { fine } from "@/lib/fine";
+import apiClient from "@/lib/api-client";
 import { useToast } from "@/hooks/use-toast";
 
 const Settings = () => {
@@ -11,32 +11,26 @@ const Settings = () => {
   const [config, setConfig] = useState<Record<string, string>>({});
   const { toast } = useToast();
 
-  const fetchConfig = async () => {
+  const fetchConfig = useCallback(async () => {
     try {
       setIsLoading(true);
-      const configs = await fine.table("configurations").select();
-      
-      const configMap: Record<string, string> = {};
-      configs.forEach(config => {
-        configMap[config.key] = config.value;
-      });
-      
-      setConfig(configMap);
+      const { data } = await apiClient.getConfig();
+      setConfig(data);
     } catch (error) {
-      console.error("Failed to fetch configuration:", error);
+      console.error("Failed to fetch config:", error);
       toast({
         title: "Error",
-        description: "Failed to load configuration settings. Please try again.",
+        description: "Failed to load configuration. Please try again.",
         variant: "destructive",
       });
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     fetchConfig();
-  }, []);
+  }, [fetchConfig]);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -45,7 +39,7 @@ const Settings = () => {
         <div className="mb-8">
           <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
           <p className="text-muted-foreground">
-            Configure your Chromium update server.
+            Configure your update server settings.
           </p>
         </div>
 

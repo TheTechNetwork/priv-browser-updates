@@ -1,24 +1,22 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 
 interface StatsCardProps {
   title: string;
-  value: string | number;
-  description?: string;
-  icon: React.ReactNode;
+  value: number | string;
+  description: string;
 }
 
-export function StatsCard({ title, value, description, icon }: StatsCardProps) {
+export function StatsCard({ title, value, description }: StatsCardProps) {
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <div className="h-4 w-4 text-muted-foreground">{icon}</div>
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
-        {description && (
-          <p className="text-xs text-muted-foreground mt-1">{description}</p>
-        )}
+      <CardContent className="p-6">
+        <div className="flex flex-col space-y-1">
+          <h3 className="text-sm font-medium text-muted-foreground">{title}</h3>
+          <div className="flex items-center justify-between">
+            <p className="text-2xl font-bold">{value}</p>
+          </div>
+          <p className="text-xs text-muted-foreground">{description}</p>
+        </div>
       </CardContent>
     </Card>
   );

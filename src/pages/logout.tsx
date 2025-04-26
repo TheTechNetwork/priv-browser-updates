@@ -1,14 +1,15 @@
-import { fine } from "@/lib/fine";
 import { useEffect } from "react";
 import { Navigate } from "react-router-dom";
+import { useAuth } from "@/lib/auth";
 
 export default function Logout() {
-  if (!fine) return <Navigate to='/' />;
+  const { signOut, isAuthenticated } = useAuth();
 
-  const { isPending, data } = fine.auth.useSession();
   useEffect(() => {
-    if (!isPending && data) fine.auth.signOut();
-  }, [data]);
+    if (isAuthenticated) {
+      signOut();
+    }
+  }, [isAuthenticated, signOut]);
 
-  return !isPending && !data ? <Navigate to='/login' /> : null;
+  return <Navigate to="/login" />;
 }

@@ -1,5 +1,5 @@
 // This file tests the version comparison functions using a standalone implementation
-const { parseVersionString, compareVersions } = require('./version-utils');
+import { parseVersionString, compareVersions } from './version-utils';
 
 describe('parseVersionString', () => {
   it('should parse a simple version string correctly', () => {

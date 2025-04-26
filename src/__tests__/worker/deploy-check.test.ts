@@ -1,4 +1,4 @@
-import { describe, expect, it, jest } from '@jest/globals';
+import { describe, expect, it } from '@jest/globals';
 import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';

@@ -1,6 +1,5 @@
-import React from 'react';
-import { renderHook } from '@testing-library/react';
-import { useIsMobile } from '../../hooks/use-mobile';
+import { renderHook } from "@testing-library/react";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 // Mock matchMedia
 Object.defineProperty(window, 'matchMedia', {
@@ -17,38 +16,25 @@ Object.defineProperty(window, 'matchMedia', {
   })),
 });
 
-describe('useIsMobile hook', () => {
+describe("useIsMobile", () => {
   beforeEach(() => {
     // Reset the mock implementation before each test
     jest.clearAllMocks();
-    window.innerWidth = 1024; // Default to desktop size
+    global.innerWidth = 1024; // Default to desktop size
   });
 
-  it('should return false for desktop viewport', () => {
-    // Setup matchMedia to return false (desktop)
-    window.matchMedia = jest.fn().mockImplementation(query => ({
-      matches: false,
-      media: query,
-      addEventListener: jest.fn(),
-      removeEventListener: jest.fn(),
-    }));
-
+  it("should return false for desktop viewport", () => {
+    // Mock window.innerWidth
+    global.innerWidth = 1024;
+    
     const { result } = renderHook(() => useIsMobile());
     expect(result.current).toBe(false);
   });
 
-  it('should return true for mobile viewport', () => {
-    // Setup matchMedia to return true (mobile)
-    window.matchMedia = jest.fn().mockImplementation(query => ({
-      matches: true,
-      media: query,
-      addEventListener: jest.fn(),
-      removeEventListener: jest.fn(),
-    }));
+  it("should return true for mobile viewport", () => {
+    // Mock window.innerWidth
+    global.innerWidth = 375;
     
-    // Set window.innerWidth to a mobile size
-    window.innerWidth = 500;
-
     const { result } = renderHook(() => useIsMobile());
     expect(result.current).toBe(true);
   });

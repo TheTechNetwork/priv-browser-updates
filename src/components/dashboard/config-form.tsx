@@ -1,12 +1,10 @@
 import { useState } from "react";
-import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
-import { fine } from "@/lib/fine";
+import apiClient from "@/lib/api-client";
 import { useToast } from "@/hooks/use-toast";
 
 interface ConfigFormProps {
@@ -16,182 +14,102 @@ interface ConfigFormProps {
 
 export function ConfigForm({ initialConfig, onSaved }: ConfigFormProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [config, setConfig] = useState(initialConfig);
   const { toast } = useToast();
-  
-  const { register, handleSubmit, formState: { errors } } = useForm({
-    defaultValues: {
-      githubOwner: initialConfig.githubOwner || "",
-      githubRepo: initialConfig.githubRepo || "",
-      githubToken: initialConfig.githubToken || "",
-      cacheDuration: initialConfig.cacheDuration || "3600",
-      stableChannel: initialConfig.stableChannel === "true",
-      betaChannel: initialConfig.betaChannel === "true",
-      devChannel: initialConfig.devChannel === "true",
-    }
-  });
-  
-  const onSubmit = async (data: any) => {
+
+  const handleChange = (key: string, value: string) => {
+    setConfig(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
     try {
-      setIsLoading(true);
-      
-      // Convert boolean values to strings
-      const configData = {
-        ...data,
-        stableChannel: data.stableChannel ? "true" : "false",
-        betaChannel: data.betaChannel ? "true" : "false",
-        devChannel: data.devChannel ? "true" : "false",
-      };
-      
-      // Update each configuration value
-      for (const [key, value] of Object.entries(configData)) {
-        await fine.table("configurations")
-          .update({ value: String(value) })
-          .eq("key", key)
-          .select();
-      }
-      
+      await apiClient.updateConfig(config);
       toast({
-        title: "Settings saved",
-        description: "Your configuration has been updated successfully.",
+        title: "Success",
+        description: "Configuration saved successfully.",
       });
-      
       onSaved();
     } catch (error) {
-      console.error("Failed to save configuration:", error);
-      toast({
-        title: "Error",
-        description: "Failed to save configuration. Please try again.",
-        variant: "destructive",
-      });
+      if (error instanceof Error) {
+        toast({
+          title: "Error",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "An unexpected error occurred",
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsLoading(false);
     }
   };
-  
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)}>
+    <form onSubmit={handleSubmit}>
       <Card>
         <CardHeader>
-          <CardTitle>GitHub Repository Settings</CardTitle>
+          <CardTitle>GitHub Integration</CardTitle>
           <CardDescription>
-            Configure the GitHub repository where your Chromium builds are published.
+            Configure GitHub repository settings for release synchronization.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="githubOwner">Repository Owner</Label>
-              <Input
-                id="githubOwner"
-                placeholder="e.g., username or organization"
-                {...register("githubOwner", { required: "Repository owner is required" })}
-              />
-              {errors.githubOwner && (
-                <p className="text-sm text-destructive">{errors.githubOwner.message as string}</p>
-              )}
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="githubRepo">Repository Name</Label>
-              <Input
-                id="githubRepo"
-                placeholder="e.g., chromium-fork"
-                {...register("githubRepo", { required: "Repository name is required" })}
-              />
-              {errors.githubRepo && (
-                <p className="text-sm text-destructive">{errors.githubRepo.message as string}</p>
-              )}
-            </div>
-          </div>
-          
           <div className="space-y-2">
-            <Label htmlFor="githubToken">GitHub API Token (Optional)</Label>
+            <Label htmlFor="githubOwner">Repository Owner</Label>
+            <Input
+              id="githubOwner"
+              value={config.githubOwner || ""}
+              onChange={(e) => handleChange("githubOwner", e.target.value)}
+              placeholder="e.g., microsoft"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="githubRepo">Repository Name</Label>
+            <Input
+              id="githubRepo"
+              value={config.githubRepo || ""}
+              onChange={(e) => handleChange("githubRepo", e.target.value)}
+              placeholder="e.g., chromium"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="githubToken">GitHub Token</Label>
             <Input
               id="githubToken"
               type="password"
-              placeholder="Personal access token for private repositories"
-              {...register("githubToken")}
+              value={config.githubToken || ""}
+              onChange={(e) => handleChange("githubToken", e.target.value)}
+              placeholder="GitHub Personal Access Token"
             />
-            <p className="text-xs text-muted-foreground">
-              Only required for private repositories or to increase API rate limits.
-            </p>
           </div>
-          
           <div className="space-y-2">
             <Label htmlFor="cacheDuration">Cache Duration (seconds)</Label>
             <Input
               id="cacheDuration"
               type="number"
-              {...register("cacheDuration", { 
-                required: "Cache duration is required",
-                min: { value: 60, message: "Minimum cache duration is 60 seconds" }
-              })}
-            />
-            {errors.cacheDuration && (
-              <p className="text-sm text-destructive">{errors.cacheDuration.message as string}</p>
-            )}
-            <p className="text-xs text-muted-foreground">
-              How long to cache GitHub API responses (in seconds).
-            </p>
-          </div>
-        </CardContent>
-        
-        <CardHeader className="border-t pt-6">
-          <CardTitle>Channel Settings</CardTitle>
-          <CardDescription>
-            Configure which update channels are enabled.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="stableChannel">Stable Channel</Label>
-              <p className="text-sm text-muted-foreground">
-                Serve updates for stable channel clients
-              </p>
-            </div>
-            <Switch
-              id="stableChannel"
-              {...register("stableChannel")}
-            />
-          </div>
-          
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="betaChannel">Beta Channel</Label>
-              <p className="text-sm text-muted-foreground">
-                Serve updates for beta channel clients
-              </p>
-            </div>
-            <Switch
-              id="betaChannel"
-              {...register("betaChannel")}
-            />
-          </div>
-          
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="devChannel">Dev Channel</Label>
-              <p className="text-sm text-muted-foreground">
-                Serve updates for dev channel clients
-              </p>
-            </div>
-            <Switch
-              id="devChannel"
-              {...register("devChannel")}
+              value={config.cacheDuration || "3600"}
+              onChange={(e) => handleChange("cacheDuration", e.target.value)}
+              min="60"
+              max="86400"
             />
           </div>
         </CardContent>
-        
         <CardFooter>
-          <Button type="submit" disabled={isLoading}>
+          <Button type="submit" disabled={isLoading} className="w-full">
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Saving...
               </>
             ) : (
-              "Save Settings"
+              "Save Changes"
             )}
           </Button>
         </CardFooter>

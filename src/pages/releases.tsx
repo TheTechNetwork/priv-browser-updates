@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { ReleaseTable } from "@/components/dashboard/release-table";
@@ -6,8 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, RefreshCw, GitPullRequest } from "lucide-react";
-import { fine } from "@/lib/fine";
-import { syncReleasesToDatabase } from "@/lib/github";
+import apiClient from "@/lib/api-client";
 import { useToast } from "@/hooks/use-toast";
 import type { Schema } from "@/lib/db-types";
 
@@ -23,10 +22,10 @@ const Releases = () => {
   });
   const { toast } = useToast();
 
-  const fetchReleases = async () => {
+  const fetchReleases = useCallback(async () => {
     try {
       setIsLoading(true);
-      const releasesData = await fine.table("releases").select();
+      const releasesData = await apiClient.getReleases();
       setReleases(releasesData);
       setFilteredReleases(releasesData);
     } catch (error) {
@@ -39,18 +38,18 @@ const Releases = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [toast]);
 
   const handleSync = async () => {
     try {
       setIsSyncing(true);
-      await syncReleasesToDatabase();
+      await apiClient.syncGitHubReleases();
       toast({
         title: "Sync completed",
         description: "Successfully synchronized releases from GitHub.",
       });
       fetchReleases();
-    } catch (error: any) {
+    } catch (error) {
       console.error("Failed to sync releases:", error);
       toast({
         title: "Sync failed",
@@ -62,7 +61,25 @@ const Releases = () => {
     }
   };
 
-  const applyFilters = () => {
+  const handleToggleStatus = async (release: Schema["releases"]) => {
+    try {
+      await apiClient.updateReleaseStatus(release.id, !release.isActive);
+      toast({
+        title: "Status updated",
+        description: `Release ${release.version} has been ${release.isActive ? "deactivated" : "activated"}.`,
+      });
+      fetchReleases();
+    } catch (error) {
+      console.error("Failed to update release status:", error);
+      toast({
+        title: "Update failed",
+        description: error.message || "Failed to update release status.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const applyFilters = useCallback(() => {
     let filtered = [...releases];
     
     if (filters.version) {
@@ -84,7 +101,7 @@ const Releases = () => {
     }
     
     setFilteredReleases(filtered);
-  };
+  }, [filters, releases]);
 
   const handleFilterChange = (key: keyof typeof filters, value: string) => {
     setFilters(prev => ({ ...prev, [key]: value }));
@@ -92,11 +109,11 @@ const Releases = () => {
 
   useEffect(() => {
     fetchReleases();
-  }, []);
+  }, [fetchReleases]);
 
   useEffect(() => {
     applyFilters();
-  }, [filters, releases]);
+  }, [applyFilters]);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -177,7 +194,10 @@ const Releases = () => {
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : (
-          <ReleaseTable releases={filteredReleases} onRefresh={fetchReleases} />
+          <ReleaseTable 
+            releases={filteredReleases} 
+            onToggleStatus={handleToggleStatus} 
+          />
         )}
       </main>
       <Footer />

@@ -1,4 +1,4 @@
-import { fine } from "./fine";
+import apiClient from "./api-client";
 
 interface GitHubRelease {
   tag_name: string;
@@ -26,18 +26,12 @@ let releasesCache: {
 } | null = null;
 
 export async function getConfig(): Promise<Config> {
-  const configs = await fine.table("configurations").select();
-  
-  const configMap: Record<string, string> = {};
-  configs.forEach(config => {
-    configMap[config.key] = config.value;
-  });
-  
+  const { data } = await apiClient.getConfig();
   return {
-    githubOwner: configMap.githubOwner || "",
-    githubRepo: configMap.githubRepo || "",
-    githubToken: configMap.githubToken || "",
-    cacheDuration: parseInt(configMap.cacheDuration || "3600", 10),
+    githubOwner: data.githubOwner || "",
+    githubRepo: data.githubRepo || "",
+    githubToken: data.githubToken || "",
+    cacheDuration: parseInt(data.cacheDuration || "3600", 10),
   };
 }
 
@@ -106,16 +100,9 @@ export async function syncReleasesToDatabase(): Promise<void> {
         channel = "dev";
       }
       
-      // Check if this release already exists
-      const existingReleases = await fine.table("releases")
-        .select()
-        .eq("version", version)
-        .eq("platform", platform)
-        .eq("channel", channel);
-      
-      if (existingReleases.length === 0) {
-        // Insert new release
-        await fine.table("releases").insert({
+      // Use the API client to check and create releases
+      try {
+        await apiClient.createRelease({
           version,
           channel,
           platform,
@@ -124,6 +111,8 @@ export async function syncReleasesToDatabase(): Promise<void> {
           fileSize: asset.size,
           isActive: true
         });
+      } catch (error) {
+        console.error(`Failed to create release ${version} for ${platform}:`, error);
       }
     }
   }

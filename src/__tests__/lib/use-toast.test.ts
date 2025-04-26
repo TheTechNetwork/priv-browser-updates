@@ -7,8 +7,22 @@ jest.useFakeTimers();
 // Constants from the original file
 const TOAST_LIMIT = 1;
 
+interface Toast {
+  id: string;
+  title: string;
+  description?: string;
+  open: boolean;
+  onOpenChange?: (open: boolean) => void;
+}
+
+type ToastAction = 
+  | { type: 'ADD_TOAST'; toast: Toast }
+  | { type: 'UPDATE_TOAST'; toast: Partial<Toast> & { id: string } }
+  | { type: 'DISMISS_TOAST'; toastId?: string }
+  | { type: 'REMOVE_TOAST'; toastId?: string };
+
 // Simplified reducer implementation for testing
-const reducer = (state: { toasts: any[] }, action: any): { toasts: any[] } => {
+const reducer = (state: { toasts: Toast[] }, action: ToastAction): { toasts: Toast[] } => {
   switch (action.type) {
     case "ADD_TOAST":
       return {
@@ -221,5 +235,33 @@ describe('Toast reducer', () => {
     );
     
     expect(state.toasts).toHaveLength(0);
+  });
+});
+
+import { renderHook } from "@testing-library/react";
+import { useToast } from "@/hooks/use-toast";
+
+// Mock the toast store
+jest.mock("@/components/ui/use-toast", () => ({
+  useToast: jest.fn(() => ({
+    toast: jest.fn(),
+    dismiss: jest.fn(),
+  })),
+}));
+
+// Define proper types for the mock functions
+type ToastFunction = () => {
+  toast: jest.Mock;
+  dismiss: jest.Mock;
+};
+
+// Cast the mock to the proper type
+const mockUseToast = useToast as unknown as ToastFunction;
+
+describe("useToast", () => {
+  it("should return toast functions", () => {
+    const { result } = renderHook(() => mockUseToast());
+    expect(result.current.toast).toBeDefined();
+    expect(result.current.dismiss).toBeDefined();
   });
 });

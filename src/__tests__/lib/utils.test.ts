@@ -44,7 +44,8 @@ describe('cn utility function', () => {
   });
 
   it('should handle empty or falsy inputs', () => {
-    const result = mockCn('class1', '', null, undefined, false && 'class2');
+    const shouldAddClass = false;
+    const result = mockCn('class1', '', null, undefined, shouldAddClass && 'class2');
     expect(result).toBe('class1');
   });
 });

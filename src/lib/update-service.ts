@@ -1,31 +1,20 @@
-import { fine } from "./fine";
-import { compareVersions } from "./github";
 import type { Schema } from "./db-types";
+import apiClient from "./api-client";
 
 interface UpdateRequest {
-  version: string;
-  platform: string;
-  channel: string;
-  userAgent: string;
-  ip: string;
+  version?: string;
+  platform?: string;
+  channel?: string;
+  ip?: string;
+  userAgent?: string;
 }
 
 export async function logUpdateRequest(request: UpdateRequest): Promise<void> {
-  await fine.table("updateRequests").insert({
-    clientVersion: request.version,
-    platform: request.platform,
-    channel: request.channel,
-    userAgent: request.userAgent,
-    ip: request.ip
-  });
+  await apiClient.createUpdateRequest(request);
 }
 
 export async function getLatestVersion(platform: string, channel: string): Promise<Schema["releases"] | null> {
-  const releases = await fine.table("releases")
-    .select()
-    .eq("platform", platform)
-    .eq("channel", channel)
-    .eq("isActive", true);
+  const releases = await apiClient.getReleases({ platform, channel, isActive: true });
   
   if (releases.length === 0) {
     return null;
@@ -67,6 +56,21 @@ export function generateUpdateXml(release: Schema["releases"] | null, request: U
     </updatecheck>
   </app>
 </response>`;
+}
+
+function compareVersions(v1: string = '', v2: string = ''): number {
+  const parts1 = v1.split('.').map(part => parseInt(part, 10) || 0);
+  const parts2 = v2.split('.').map(part => parseInt(part, 10) || 0);
+  
+  for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+    const part1 = parts1[i] || 0;
+    const part2 = parts2[i] || 0;
+    
+    if (part1 > part2) return 1;
+    if (part1 < part2) return -1;
+  }
+  
+  return 0;
 }
 
 export async function processUpdateRequest(request: UpdateRequest): Promise<string> {
