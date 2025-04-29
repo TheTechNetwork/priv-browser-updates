@@ -2,6 +2,7 @@
 
 import { processUpdateRequest } from "./update-service";
 import { handleGitHubCallback } from './auth';
+import { fetchGitHubReleases, syncReleasesToDatabase } from './github';
 
 interface KVNamespaceGetOptions<T> {
   type?: 'text' | 'json' | 'arrayBuffer' | 'stream';
@@ -33,11 +34,20 @@ interface CustomKVNamespace {
   getWithMetadata<T = unknown>(key: string): Promise<KVNamespaceGetWithMetadataResult<string, T>>;
 }
 
+interface ChannelSettings {
+  stableChannel: boolean;
+  betaChannel: boolean;
+  devChannel: boolean;
+}
+
 export interface Env {
   DB: D1Database;
   CACHE: CustomKVNamespace;
   GITHUB_CLIENT_ID: string;
   GITHUB_CLIENT_SECRET: string;
+  GITHUB_OWNER: string;
+  GITHUB_REPO: string;
+  GITHUB_TOKEN: string;
 }
 
 // Add CORS headers to the response
@@ -132,12 +142,33 @@ async function handleApiRequest(request: Request, url: URL, env: Env): Promise<R
     return new Response('Authentication required', { status: 401 });
   }
   
-  // Example API endpoints
+  // Handle releases endpoints
   if (url.pathname === '/api/releases') {
     const releases = await env.DB.prepare('SELECT * FROM releases ORDER BY id DESC').all();
     return new Response(JSON.stringify(releases.results), {
       headers: { 'Content-Type': 'application/json' }
     });
+  }
+
+  if (url.pathname === '/api/releases/sync') {
+    if (request.method !== 'POST') {
+      return new Response('Method not allowed', { status: 405 });
+    }
+
+    try {
+      const releases = await fetchGitHubReleases(env);
+      await syncReleasesToDatabase(releases, env.DB);
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } catch (error) {
+      return new Response(JSON.stringify({ 
+        error: error instanceof Error ? error.message : 'Failed to sync releases' 
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
   }
 
   if (url.pathname === '/api/stats') {
@@ -159,18 +190,44 @@ async function handleApiRequest(request: Request, url: URL, env: Env): Promise<R
     });
   }
 
-  if (url.pathname === '/api/config') {
+  if (url.pathname === '/api/settings') {
     if (request.method === 'GET') {
-      // Return the current configuration
-      return new Response(JSON.stringify({
-        // Add your config fields here
-        githubToken: '***', // Don't expose the actual token
-        githubOwner: env.GITHUB_CLIENT_ID,
-        githubRepo: 'your-repo',
-        releasePattern: '*',
-        autoSync: true,
-        syncInterval: 3600
-      }), {
+      const { results } = await env.DB.prepare(`
+        SELECT key, value FROM configurations 
+        WHERE key IN ('stableChannel', 'betaChannel', 'devChannel')
+      `).all();
+      
+      const channelSettings: ChannelSettings = {
+        stableChannel: true,
+        betaChannel: true,
+        devChannel: true
+      };
+
+      (results as Array<{ key: keyof ChannelSettings; value: string }>).forEach(row => {
+        channelSettings[row.key] = row.value === 'true';
+      });
+
+      return new Response(JSON.stringify(channelSettings), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (request.method === 'PUT') {
+      const body = await request.json() as Partial<ChannelSettings>;
+      
+      // Update each channel setting
+      const validKeys: Array<keyof ChannelSettings> = ['stableChannel', 'betaChannel', 'devChannel'];
+      for (const key of validKeys) {
+        if (typeof body[key] === 'boolean') {
+          await env.DB.prepare(`
+            UPDATE configurations 
+            SET value = ?, updatedAt = CURRENT_TIMESTAMP 
+            WHERE key = ?
+          `).bind(body[key].toString(), key).run();
+        }
+      }
+
+      return new Response(JSON.stringify({ success: true }), {
         headers: { 'Content-Type': 'application/json' }
       });
     }
