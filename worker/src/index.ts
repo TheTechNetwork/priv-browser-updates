@@ -40,72 +40,97 @@ export interface Env {
   GITHUB_CLIENT_SECRET: string;
 }
 
+// Add CORS headers to the response
+function corsify(response: Response): Response {
+  const headers = new Headers(response.headers);
+  headers.set('Access-Control-Allow-Origin', 'http://localhost:5173');
+  headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-API-Key');
+  
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers
+  });
+}
+
 export default {
   // ctx is required by Cloudflare Workers runtime but not used in our code
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    // Use ctx.waitUntil for background tasks if needed
+    // Handle CORS preflight requests
+    if (request.method === 'OPTIONS') {
+      return corsify(new Response(null, { status: 204 }));
+    }
+
     const url = new URL(request.url);
     const path = url.pathname;
 
-    // Handle update requests
-    if (path === "/update") {
-      const version = url.searchParams.get("version");
-      const platform = url.searchParams.get("platform");
-      const channel = url.searchParams.get("channel");
+    try {
+      let response: Response;
 
-      if (!version || !platform || !channel) {
-        return new Response("Missing required parameters", { status: 400 });
+      // Handle GitHub OAuth callback first
+      if (path === '/api/auth/github/callback') {
+        response = await handleGitHubCallback(request, env);
+        return corsify(response);
       }
 
-      // Process the update request
-      const updateRequest = {
-        version,
-        platform,
-        channel,
-        ip: request.headers.get("cf-connecting-ip") || "unknown",
-        userAgent: request.headers.get("user-agent") || "unknown",
-      };
+      // Handle update requests
+      if (path === "/update") {
+        const version = url.searchParams.get("version");
+        const platform = url.searchParams.get("platform");
+        const channel = url.searchParams.get("channel");
 
-      try {
+        if (!version || !platform || !channel) {
+          response = new Response("Missing required parameters", { status: 400 });
+          return corsify(response);
+        }
+
+        const updateRequest = {
+          version,
+          platform,
+          channel,
+          ip: request.headers.get("cf-connecting-ip") || "unknown",
+          userAgent: request.headers.get("user-agent") || "unknown",
+        };
+
         const xml = await processUpdateRequest(updateRequest, env.DB);
-        return new Response(xml, {
+        response = new Response(xml, {
           headers: {
             'Content-Type': 'application/xml',
             'Cache-Control': 'no-cache'
           }
         });
-      } catch (error) {
-        return new Response(error instanceof Error ? error.message : 'Internal server error', {
-          status: 500
-        });
+        return corsify(response);
       }
-    }
 
-    // Handle API requests (for admin dashboard)
-    if (path.startsWith('/api/')) {
-      return handleApiRequest(request, url, env);
-    }
+      // Handle other API requests (for admin dashboard)
+      if (path.startsWith('/api/')) {
+        response = await handleApiRequest(request, url, env);
+        return corsify(response);
+      }
 
-    // Handle GitHub OAuth callback
-    if (path === '/api/auth/github/callback') {
-      return handleGitHubCallback(request, env);
+      // Handle 404 for unknown routes
+      response = new Response("Not found", { status: 404 });
+      return corsify(response);
+    } catch (error) {
+      const response = new Response(error instanceof Error ? error.message : 'Internal server error', {
+        status: 500
+      });
+      return corsify(response);
     }
-
-    // Handle 404 for unknown routes
-    return new Response("Not found", { status: 404 });
   }
 };
 
 async function handleApiRequest(request: Request, url: URL, env: Env): Promise<Response> {
-  // This would handle API requests from the admin dashboard
-  // For security, these should be authenticated
-  
+  // Check for authentication
   const apiKey = request.headers.get('X-API-Key');
-  if (!apiKey) {
-    return new Response('API key required', { status: 401 });
+  const authHeader = request.headers.get('Authorization');
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+
+  if (!apiKey && !token) {
+    return new Response('Authentication required', { status: 401 });
   }
-  // In a real implementation, validate the API key against a stored value
   
   // Example API endpoints
   if (url.pathname === '/api/releases') {
@@ -132,6 +157,23 @@ async function handleApiRequest(request: Request, url: URL, env: Env): Promise<R
     }), {
       headers: { 'Content-Type': 'application/json' }
     });
+  }
+
+  if (url.pathname === '/api/config') {
+    if (request.method === 'GET') {
+      // Return the current configuration
+      return new Response(JSON.stringify({
+        // Add your config fields here
+        githubToken: '***', // Don't expose the actual token
+        githubOwner: env.GITHUB_CLIENT_ID,
+        githubRepo: 'your-repo',
+        releasePattern: '*',
+        autoSync: true,
+        syncInterval: 3600
+      }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
   }
   
   return new Response('API endpoint not found', { status: 404 });

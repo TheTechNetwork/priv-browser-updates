@@ -1,22 +1,25 @@
 import { create } from 'zustand';
 import { apiClient } from './api';
 
-interface AuthState {
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    avatar: string;
-  } | null;
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  avatar: string;
+}
+
+export interface AuthState {
+  user: User | null;
   isLoading: boolean;
   error: Error | null;
   isAuthenticated: boolean;
   signInWithGitHub: () => Promise<void>;
   signOut: () => Promise<void>;
+  setUser: (user: User) => void;
 }
 
 const GITHUB_CLIENT_ID = import.meta.env.VITE_GITHUB_CLIENT_ID;
-const GITHUB_REDIRECT_URI = `${window.location.origin}/auth/callback`;
+const GITHUB_REDIRECT_URI = `http://127.0.0.1:8787/api/auth/github/callback`;
 
 interface GitHubUserData {
   id: number;
@@ -24,13 +27,6 @@ interface GitHubUserData {
   login: string;
   email: string;
   avatar_url: string;
-}
-
-export interface User {
-  id: number;
-  name: string;
-  email: string;
-  avatar: string;
 }
 
 export interface AuthResponse {
@@ -55,19 +51,26 @@ export const useAuth = create<AuthState>((set) => ({
 
   signOut: async () => {
     try {
-      // Clear the session token from localStorage
       localStorage.removeItem('github_token');
-      
-      // Reset the auth state
       set({
         user: null,
         isAuthenticated: false,
         error: null,
+        isLoading: false
       });
     } catch (error) {
-      set({ error: error as Error });
+      set({ error: error instanceof Error ? error : new Error('Failed to sign out') });
     }
   },
+
+  setUser: (user: User) => {
+    set({
+      user,
+      isAuthenticated: true,
+      isLoading: false,
+      error: null
+    });
+  }
 }));
 
 // Initialize auth state by checking for existing token
@@ -104,7 +107,7 @@ export const initializeAuth = async () => {
     });
   } catch (error) {
     useAuth.setState({
-      error: error as Error,
+      error: error instanceof Error ? error : new Error('Failed to initialize auth'),
       isLoading: false,
     });
   }
@@ -131,7 +134,7 @@ export async function getUserData(accessToken: string): Promise<User> {
   const userData = await response.json() as GitHubUserData;
 
   return {
-    id: userData.id,
+    id: userData.id.toString(),
     name: userData.name || userData.login,
     email: userData.email,
     avatar: userData.avatar_url,

@@ -24,9 +24,7 @@ import Logs from "./pages/logs";
 import ApiDocs from "./pages/api-docs";
 import AuthCallback from "./pages/auth/callback";
 import { initializeAuth } from "./lib/auth";
-
-// Initialize auth on app start
-initializeAuth();
+import { ProtectedRoute } from "./components/auth/route-components";
 
 const queryClient = new QueryClient();
 
@@ -34,11 +32,11 @@ const queryClient = new QueryClient();
 const router = createBrowserRouter(
   createRoutesFromElements(
     <Route>
-      <Route path='/' element={<Index />} />
-      <Route path='/releases' element={<Releases />} />
-      <Route path='/settings' element={<Settings />} />
-      <Route path='/logs' element={<Logs />} />
-      <Route path='/api-docs' element={<ApiDocs />} />
+      <Route path='/' element={<ProtectedRoute Component={Index} />} />
+      <Route path='/releases' element={<ProtectedRoute Component={Releases} />} />
+      <Route path='/settings' element={<ProtectedRoute Component={Settings} />} />
+      <Route path='/logs' element={<ProtectedRoute Component={Logs} />} />
+      <Route path='/api-docs' element={<ProtectedRoute Component={ApiDocs} />} />
       <Route path='/login' element={<LoginForm />} />
       <Route path='/logout' element={<Logout />} />
       <Route path='/auth/callback' element={<AuthCallback />} />
@@ -60,17 +58,30 @@ function LoadingFallback() {
   );
 }
 
-createRoot(document.getElementById("root")!).render(
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <RouterProvider 
-          router={router}
-          fallbackElement={<LoadingFallback />}
-        />
-        <Sonner />
-        <Toaster />
+        <TooltipProvider>
+          <RouterProvider router={router} fallbackElement={<LoadingFallback />} />
+          <Toaster />
+          <Sonner />
+        </TooltipProvider>
       </ThemeProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+    </QueryClientProvider>
+  );
+}
+
+// Initialize auth and then render the app
+const container = document.getElementById('root');
+if (container) {
+  const root = createRoot(container);
+  
+  // Initialize auth before rendering
+  initializeAuth().then(() => {
+    root.render(<App />);
+  }).catch((error) => {
+    console.error('Failed to initialize auth:', error);
+    root.render(<App />); // Still render the app even if auth fails
+  });
+}

@@ -1,84 +1,56 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { exchangeCodeForToken, getUserData, type User } from '@/lib/auth';
-
-interface AuthState {
-  user: User | null;
-  isLoading: boolean;
-  error: string | null;
-}
-
-const initialState: AuthState = {
-  user: null,
-  isLoading: true,
-  error: null
-};
-
-export function useAuth() {
-  const [authState, setAuthState] = useState<AuthState>(initialState);
-
-  const login = async () => {
-    try {
-      setAuthState({ ...authState, isLoading: true, error: null });
-      // Implement login logic here
-      setAuthState({ ...authState, isLoading: false });
-    } catch (error) {
-      setAuthState({
-        user: null,
-        isLoading: false,
-        error: error instanceof Error ? error.message : 'Login failed'
-      });
-    }
-  };
-
-  const logout = () => {
-    setAuthState({
-      user: null,
-      isLoading: false,
-      error: null
-    });
-  };
-
-  return {
-    ...authState,
-    login,
-    logout,
-  };
-}
+import { exchangeCodeForToken, getUserData, useAuth } from '@/lib/auth';
 
 export function useAuthCallback() {
   const location = useLocation();
   const navigate = useNavigate();
-  const [authState, setAuthState] = useState<AuthState>(initialState);
+  const { isLoading, error, signOut, setUser } = useAuth();
 
   useEffect(() => {
     const handleCallback = async () => {
       const searchParams = new URLSearchParams(location.search);
       const code = searchParams.get('code');
+      const token = searchParams.get('token');
+      const error = searchParams.get('error');
 
-      if (!code) {
+      if (error) {
+        await signOut();
+        navigate('/login', { replace: true });
+        return;
+      }
+
+      if (!code && !token) {
         navigate('/login', { replace: true });
         return;
       }
 
       try {
-        const accessToken = await exchangeCodeForToken(code);
-        const user = await getUserData(accessToken);
+        let accessToken: string;
+        
+        if (token) {
+          // If we got the token directly from the worker
+          accessToken = token;
+        } else {
+          // If we got the code from GitHub, exchange it for a token
+          accessToken = await exchangeCodeForToken(code!);
+        }
 
-        setAuthState({ user, isLoading: false, error: null });
+        localStorage.setItem('github_token', accessToken);
+        const userData = await getUserData(accessToken);
+        
+        // Initialize the auth state
+        setUser(userData);
+        
         navigate('/', { replace: true });
       } catch (error) {
-        setAuthState({
-          user: null,
-          isLoading: false,
-          error: error instanceof Error ? error.message : 'Authentication failed'
-        });
+        await signOut();
         navigate('/login', { replace: true });
       }
     };
 
     handleCallback();
-  }, [location, navigate]);
+  }, [location, navigate, signOut, setUser]);
 
-  return authState;
+  return { isLoading, error };
 } 
