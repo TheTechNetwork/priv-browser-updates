@@ -26,8 +26,8 @@ const items = [
 
 export function AppSidebar() {
   return (
-    <SidebarProvider>
-      <Sidebar className="bg-primary">
+    <SidebarProvider defaultOpen>
+      <Sidebar variant="sidebar" side="left" className="h-full fixed">
         <SidebarContent>
           <SidebarGroup>
             <SidebarGroupLabel>Application</SidebarGroupLabel>

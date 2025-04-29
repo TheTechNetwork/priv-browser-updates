@@ -162,6 +162,10 @@ For local development:
    ```env
    # Frontend Environment Variables
    VITE_GITHUB_CLIENT_ID=your_github_client_id
+   VITE_GITHUB_OWNER=your-org-name      # The GitHub organization/user that owns the repository
+   VITE_GITHUB_REPO=your-repo-name      # The repository name containing the releases
+   VITE_GITHUB_TOKEN=your-github-token  # GitHub Personal Access Token with repo scope
+   VITE_API_URL=http://localhost:8787   # The URL of your API server
    ```
 
 2. Create a `wrangler.dev.toml` for local worker development:
@@ -214,3 +218,37 @@ For local development:
   2. Environment variables are correctly set
   3. Worker is deployed and running
   4. Frontend is using the correct Client ID
+
+## Environment Variables
+
+The following environment variables must be set in a `.env.local` file:
+
+```env
+# GitHub Configuration (Required)
+VITE_GITHUB_OWNER=your-org-name      # The GitHub organization/user that owns the repository
+VITE_GITHUB_REPO=your-repo-name      # The repository name containing the releases
+VITE_GITHUB_TOKEN=your-github-token  # GitHub Personal Access Token with repo scope
+
+# API Configuration
+VITE_API_URL=http://localhost:8787   # The URL of your API server
+```
+
+These variables are required for the application to function properly and cannot be changed through the UI for security reasons.
+
+## Development
+
+1. Create a `.env.local` file with the required environment variables
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Start the development server:
+   ```bash
+   npm run dev
+   ```
+
+## Security
+
+- GitHub repository configuration is managed through environment variables only
+- User interface configuration is limited to non-sensitive settings
+- Release sources are verified against predefined repositories only

@@ -12,14 +12,6 @@ CREATE TABLE releases (
   isActive BOOLEAN DEFAULT true
 );
 
--- Create configurations table
-CREATE TABLE configurations (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  key TEXT NOT NULL UNIQUE,
-  value TEXT NOT NULL,
-  updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
 -- Create update_requests table
 CREATE TABLE updateRequests (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -31,12 +23,16 @@ CREATE TABLE updateRequests (
   timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Create configurations table for non-sensitive settings
+CREATE TABLE configurations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  key TEXT NOT NULL UNIQUE,
+  value TEXT NOT NULL,
+  updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Insert default configurations
 INSERT INTO configurations (key, value) VALUES
-  ('githubOwner', ''),
-  ('githubRepo', ''),
-  ('githubToken', ''),
-  ('cacheDuration', '3600'),
   ('stableChannel', 'true'),
   ('betaChannel', 'true'),
   ('devChannel', 'true');
