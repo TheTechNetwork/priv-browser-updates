@@ -29,8 +29,8 @@ export interface Release {
 
 // The frontend only needs to know about releases, not GitHub specifics
 export async function getReleases(): Promise<Release[]> {
-  const { data } = await apiClient.get('/api/releases');
-  return data;
+  const { data } = await apiClient.get<{ results: Release[] }>('/api/releases');
+  return data.results;
 }
 
 export async function syncReleases(): Promise<void> {

@@ -8,7 +8,10 @@ const mockEnv: Env = {
   DB: createMockD1Database(),
   CACHE: createMockKVNamespace(),
   GITHUB_CLIENT_ID: 'test-client-id',
-  GITHUB_CLIENT_SECRET: 'test-client-secret'
+  GITHUB_CLIENT_SECRET: 'test-client-secret',
+  GITHUB_OWNER: 'test-owner',
+  GITHUB_REPO: 'test-repo',
+  GITHUB_TOKEN: 'test-token'
 };
 
 // Mock execution context

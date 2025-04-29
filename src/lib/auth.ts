@@ -115,7 +115,7 @@ export const initializeAuth = async () => {
 
 export async function exchangeCodeForToken(code: string): Promise<string> {
   const response = await apiClient.post<AuthResponse>('/api/auth/github/callback', { code });
-  return response.access_token;
+  return response.data.access_token;
 }
 
 export async function getUserData(accessToken: string): Promise<User> {
