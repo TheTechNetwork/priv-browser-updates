@@ -1,6 +1,17 @@
-interface Env {
-  GITHUB_CLIENT_ID: string;
-  GITHUB_CLIENT_SECRET: string;
+import { Env } from '.';
+
+interface GitHubAuthResponse {
+  access_token?: string;
+  error?: string;
+  error_description?: string;
+}
+
+interface GitHubUserData {
+  id: number;
+  name?: string;
+  login: string;
+  email: string;
+  avatar_url: string;
 }
 
 export async function handleGitHubCallback(request: Request, env: Env): Promise<Response> {
@@ -9,7 +20,7 @@ export async function handleGitHubCallback(request: Request, env: Env): Promise<
   }
 
   try {
-    const { code } = await request.json();
+    const { code } = await request.json() as { code: string };
 
     if (!code) {
       return new Response(JSON.stringify({ error: 'No code provided' }), {
@@ -18,26 +29,21 @@ export async function handleGitHubCallback(request: Request, env: Env): Promise<
       });
     }
 
-    // Exchange the code for an access token
+    // Exchange code for access token
     const tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
       method: 'POST',
       headers: {
         'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'User-Agent': 'Cloudflare Worker',
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
         client_id: env.GITHUB_CLIENT_ID,
         client_secret: env.GITHUB_CLIENT_SECRET,
-        code,
-      }),
+        code
+      })
     });
 
-    if (!tokenResponse.ok) {
-      throw new Error(`GitHub API error: ${tokenResponse.status}`);
-    }
-
-    const data = await tokenResponse.json();
+    const data = await tokenResponse.json() as GitHubAuthResponse;
 
     if (data.error || !data.access_token) {
       return new Response(JSON.stringify({ error: data.error_description || 'Failed to get access token' }), {
@@ -46,11 +52,14 @@ export async function handleGitHubCallback(request: Request, env: Env): Promise<
       });
     }
 
+    // Return the access token
     return new Response(JSON.stringify({ access_token: data.access_token }), {
+      status: 200,
       headers: { 'Content-Type': 'application/json' }
     });
-  } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : 'Internal server error';
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Internal server error';
     return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }

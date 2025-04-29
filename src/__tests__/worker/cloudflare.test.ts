@@ -1,31 +1,52 @@
 import { describe, expect, it, jest } from '@jest/globals';
+import type { CfProperties } from '@cloudflare/workers-types';
 
-// Mock the Request and Response classes
-class MockRequest {
-  url: string;
-  method: string;
-  headers: Record<string, string>;
-
-  constructor(url: string, options: { method?: string; headers?: Record<string, string> } = {}) {
-    this.url = url;
-    this.method = options.method || 'GET';
-    this.headers = options.headers || {};
-  }
-}
-
-class MockResponse {
+// Mock the Response class
+class MockResponse implements Partial<Response> {
   status: number;
-  headers: Map<string, string>;
-  body: string;
+  headers: Headers;
+  private responseBody: string;
+  ok: boolean;
+  redirected: boolean = false;
+  type: ResponseType = 'default';
+  url: string = '';
+  body: ReadableStream | null = null;
+  bodyUsed: boolean = false;
+  statusText: string = '';
 
-  constructor(body: string, options: { status?: number; headers?: Record<string, string> } = {}) {
-    this.body = body;
+  constructor(body: string, options: ResponseInit = {}) {
+    this.responseBody = body;
     this.status = options.status || 200;
-    this.headers = new Map(Object.entries(options.headers || {}));
+    this.headers = new Headers(options.headers);
+    this.ok = this.status >= 200 && this.status < 300;
   }
 
-  json() {
-    return Promise.resolve(JSON.parse(this.body));
+  async json(): Promise<any> {
+    return JSON.parse(this.responseBody);
+  }
+
+  async text(): Promise<string> {
+    return this.responseBody;
+  }
+
+  clone(): Response {
+    const cloned = new MockResponse(this.responseBody, {
+      status: this.status,
+      headers: this.headers
+    });
+    return cloned as unknown as Response;
+  }
+
+  arrayBuffer(): Promise<ArrayBuffer> {
+    throw new Error('Method not implemented.');
+  }
+
+  blob(): Promise<Blob> {
+    throw new Error('Method not implemented.');
+  }
+
+  formData(): Promise<FormData> {
+    throw new Error('Method not implemented.');
   }
 }
 
@@ -52,7 +73,7 @@ const mockCtx = {
 };
 
 // Mock the fetch function
-const mockFetch = jest.fn().mockImplementation(async (request: MockRequest): Promise<MockResponse> => {
+const mockFetch = jest.fn().mockImplementation(async (request: Request): Promise<MockResponse> => {
   const url = new URL(request.url);
   
   if (url.pathname === '/update') {
@@ -87,17 +108,22 @@ describe('Cloudflare Worker', () => {
 
   describe('Update endpoint', () => {
     it('should handle update requests correctly', async () => {
-      // Create a mock request
-      const request = new MockRequest('https://example.com/update?version=1.0.0&platform=win&channel=stable', {
+      // Create a request with Cloudflare properties
+      const request = new Request('https://example.com/update?version=1.0.0&platform=win&channel=stable', {
         method: 'GET',
         headers: {
           'User-Agent': 'Test User Agent',
           'CF-Connecting-IP': '127.0.0.1'
         }
       });
+      (request as any).cf = {
+        tlsVersion: '1.3',
+        country: 'US',
+        colo: 'DFW'
+      };
 
       // Call the worker handler
-      const response = await mockWorkerHandler.fetch(request, mockEnv, mockCtx);
+      const response = await mockWorkerHandler.fetch(request, mockEnv, mockCtx) as MockResponse;
 
       // Verify the response
       expect(response.status).toBe(200);
@@ -108,16 +134,21 @@ describe('Cloudflare Worker', () => {
 
   describe('API endpoints', () => {
     it('should handle /api/releases endpoint correctly', async () => {
-      // Create a mock request
-      const request = new MockRequest('https://example.com/api/releases', {
+      // Create a request with Cloudflare properties
+      const request = new Request('https://example.com/api/releases', {
         method: 'GET',
         headers: {
           'X-API-Key': 'test-api-key'
         }
       });
+      (request as any).cf = {
+        tlsVersion: '1.3',
+        country: 'US',
+        colo: 'DFW'
+      };
 
       // Call the worker handler
-      const response = await mockWorkerHandler.fetch(request, mockEnv, mockCtx);
+      const response = await mockWorkerHandler.fetch(request, mockEnv, mockCtx) as MockResponse;
 
       // Verify the response
       expect(response.status).toBe(200);
@@ -129,16 +160,21 @@ describe('Cloudflare Worker', () => {
     });
 
     it('should handle /api/sync endpoint correctly', async () => {
-      // Create a mock request
-      const request = new MockRequest('https://example.com/api/sync', {
+      // Create a request with Cloudflare properties
+      const request = new Request('https://example.com/api/sync', {
         method: 'POST',
         headers: {
           'X-API-Key': 'test-api-key'
         }
       });
+      (request as any).cf = {
+        tlsVersion: '1.3',
+        country: 'US',
+        colo: 'DFW'
+      };
 
       // Call the worker handler
-      const response = await mockWorkerHandler.fetch(request, mockEnv, mockCtx);
+      const response = await mockWorkerHandler.fetch(request, mockEnv, mockCtx) as MockResponse;
 
       // Verify the response
       expect(response.status).toBe(200);
@@ -150,11 +186,16 @@ describe('Cloudflare Worker', () => {
     });
 
     it('should return 404 for unknown API endpoints', async () => {
-      // Create a mock request
-      const request = new MockRequest('https://example.com/api/unknown');
+      // Create a request with Cloudflare properties
+      const request = new Request('https://example.com/api/unknown');
+      (request as any).cf = {
+        tlsVersion: '1.3',
+        country: 'US',
+        colo: 'DFW'
+      };
 
       // Call the worker handler
-      const response = await mockWorkerHandler.fetch(request, mockEnv, mockCtx);
+      const response = await mockWorkerHandler.fetch(request, mockEnv, mockCtx) as MockResponse;
 
       // Verify the response
       expect(response.status).toBe(404);
@@ -162,11 +203,16 @@ describe('Cloudflare Worker', () => {
   });
 
   it('should return 404 for unknown paths', async () => {
-    // Create a mock request
-    const request = new MockRequest('https://example.com/unknown');
+    // Create a request with Cloudflare properties
+    const request = new Request('https://example.com/unknown');
+    (request as any).cf = {
+      tlsVersion: '1.3',
+      country: 'US',
+      colo: 'DFW'
+    };
 
     // Call the worker handler
-    const response = await mockWorkerHandler.fetch(request, mockEnv, mockCtx);
+    const response = await mockWorkerHandler.fetch(request, mockEnv, mockCtx) as MockResponse;
 
     // Verify the response
     expect(response.status).toBe(404);

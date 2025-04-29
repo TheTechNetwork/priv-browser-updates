@@ -1,49 +1,18 @@
 import { describe, expect, it, jest, beforeEach } from '@jest/globals';
 import type { ExecutionContext } from "@cloudflare/workers-types";
-
-// Define types for Cloudflare Worker environment
-interface MockD1Database {
-  prepare: jest.Mock;
-  bind: jest.Mock;
-  all: jest.Mock;
-  run: jest.Mock;
-}
-
-interface MockKVNamespace {
-  get: jest.Mock;
-  put: jest.Mock;
-}
-
-interface MockEnv {
-  DB: MockD1Database;
-  CACHE: MockKVNamespace;
-}
-
-// Mock the D1Database and KVNamespace
-const mockD1Database: MockD1Database = {
-  prepare: jest.fn().mockReturnThis(),
-  bind: jest.fn().mockReturnThis(),
-  all: jest.fn().mockResolvedValue({ results: [] }),
-  run: jest.fn().mockResolvedValue({ success: true })
-};
-
-const mockKVNamespace: MockKVNamespace = {
-  get: jest.fn().mockResolvedValue(null),
-  put: jest.fn().mockResolvedValue(undefined)
-};
+import type { Env } from '../../../worker/src/index';
+import { createMockD1Database, createMockKVNamespace, createMockExecutionContext } from './mocks';
 
 // Mock environment
-const mockEnv: MockEnv = {
-  DB: mockD1Database,
-  CACHE: mockKVNamespace
+const mockEnv: Env = {
+  DB: createMockD1Database(),
+  CACHE: createMockKVNamespace(),
+  GITHUB_CLIENT_ID: 'test-client-id',
+  GITHUB_CLIENT_SECRET: 'test-client-secret'
 };
 
 // Mock execution context
-const mockCtx: ExecutionContext = {
-  waitUntil: jest.fn(),
-  passThroughOnException: jest.fn(),
-  props: {}
-};
+const mockCtx = createMockExecutionContext();
 
 // Mock the worker module
 jest.mock('../../../worker/src/index', () => ({
@@ -105,12 +74,12 @@ describe('Cloudflare Worker', () => {
       expect(response.headers.get('Cache-Control')).toBe('no-cache');
 
       // Verify that the database was called to log the request
-      expect(mockD1Database.prepare).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO updateRequests'));
+      expect(mockEnv.DB.prepare).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO updateRequests'));
     });
 
     it('should handle errors gracefully', async () => {
       // Mock a database error
-      mockD1Database.prepare.mockImplementationOnce(() => {
+      jest.spyOn(mockEnv.DB, 'prepare').mockImplementationOnce(() => {
         throw new Error('Database error');
       });
 
@@ -127,13 +96,6 @@ describe('Cloudflare Worker', () => {
 
   describe('API endpoints', () => {
     it('should handle /api/releases endpoint correctly', async () => {
-      // Mock database response for releases
-      (mockD1Database.all as jest.Mock).mockResolvedValueOnce({
-        results: [
-          { id: 1, version: '1.2.3', platform: 'win', channel: 'stable' }
-        ]
-      });
-
       // Create a mock request
       const request = new Request('https://example.com/api/releases', {
         method: 'GET',

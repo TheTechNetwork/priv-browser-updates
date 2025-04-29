@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { apiClient } from './api';
 
 interface AuthState {
   user: {
@@ -16,6 +17,25 @@ interface AuthState {
 
 const GITHUB_CLIENT_ID = import.meta.env.VITE_GITHUB_CLIENT_ID;
 const GITHUB_REDIRECT_URI = `${window.location.origin}/auth/callback`;
+
+interface GitHubUserData {
+  id: number;
+  name?: string;
+  login: string;
+  email: string;
+  avatar_url: string;
+}
+
+export interface User {
+  id: number;
+  name: string;
+  email: string;
+  avatar: string;
+}
+
+export interface AuthResponse {
+  access_token: string;
+}
 
 export const useAuth = create<AuthState>((set) => ({
   user: null,
@@ -70,11 +90,11 @@ export const initializeAuth = async () => {
       throw new Error('Failed to fetch user data');
     }
 
-    const userData = await response.json();
+    const userData = await response.json() as GitHubUserData;
     
     useAuth.setState({
       user: {
-        id: userData.id,
+        id: userData.id.toString(),
         name: userData.name || userData.login,
         email: userData.email,
         avatar: userData.avatar_url,
@@ -88,4 +108,32 @@ export const initializeAuth = async () => {
       isLoading: false,
     });
   }
-}; 
+};
+
+export async function exchangeCodeForToken(code: string): Promise<string> {
+  const response = await apiClient.post<AuthResponse>('/api/auth/github/callback', { code });
+  return response.access_token;
+}
+
+export async function getUserData(accessToken: string): Promise<User> {
+  const response = await fetch('https://api.github.com/user', {
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch user data');
+  }
+
+  const userData = await response.json() as GitHubUserData;
+
+  return {
+    id: userData.id,
+    name: userData.name || userData.login,
+    email: userData.email,
+    avatar: userData.avatar_url,
+  };
+} 

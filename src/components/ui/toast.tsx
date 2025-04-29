@@ -6,6 +6,9 @@ import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toastVariants } from "./toast-variants"
 
+export type ToastProps = React.ComponentPropsWithoutRef<typeof Toast>
+export type ToastActionElement = React.ReactElement<typeof ToastAction>
+
 const ToastProvider = ToastPrimitives.Provider
 
 const ToastViewport = React.forwardRef<

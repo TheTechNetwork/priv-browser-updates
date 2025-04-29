@@ -4,11 +4,12 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
-import apiClient from "@/lib/api-client";
+import { apiClient } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import type { Config } from "@/lib/github";
 
 interface ConfigFormProps {
-  initialConfig: Record<string, string>;
+  initialConfig: Config['data'];
   onSaved: () => void;
 }
 
@@ -17,7 +18,7 @@ export function ConfigForm({ initialConfig, onSaved }: ConfigFormProps) {
   const [config, setConfig] = useState(initialConfig);
   const { toast } = useToast();
 
-  const handleChange = (key: string, value: string) => {
+  const handleChange = (key: keyof Config['data'], value: string | number) => {
     setConfig(prev => ({ ...prev, [key]: value }));
   };
 
@@ -65,7 +66,7 @@ export function ConfigForm({ initialConfig, onSaved }: ConfigFormProps) {
             <Label htmlFor="githubOwner">Repository Owner</Label>
             <Input
               id="githubOwner"
-              value={config.githubOwner || ""}
+              value={config.githubOwner}
               onChange={(e) => handleChange("githubOwner", e.target.value)}
               placeholder="e.g., microsoft"
             />
@@ -74,7 +75,7 @@ export function ConfigForm({ initialConfig, onSaved }: ConfigFormProps) {
             <Label htmlFor="githubRepo">Repository Name</Label>
             <Input
               id="githubRepo"
-              value={config.githubRepo || ""}
+              value={config.githubRepo}
               onChange={(e) => handleChange("githubRepo", e.target.value)}
               placeholder="e.g., chromium"
             />
@@ -84,7 +85,7 @@ export function ConfigForm({ initialConfig, onSaved }: ConfigFormProps) {
             <Input
               id="githubToken"
               type="password"
-              value={config.githubToken || ""}
+              value={config.githubToken}
               onChange={(e) => handleChange("githubToken", e.target.value)}
               placeholder="GitHub Personal Access Token"
             />
@@ -94,8 +95,8 @@ export function ConfigForm({ initialConfig, onSaved }: ConfigFormProps) {
             <Input
               id="cacheDuration"
               type="number"
-              value={config.cacheDuration || "3600"}
-              onChange={(e) => handleChange("cacheDuration", e.target.value)}
+              value={config.cacheDuration}
+              onChange={(e) => handleChange("cacheDuration", parseInt(e.target.value, 10))}
               min="60"
               max="86400"
             />

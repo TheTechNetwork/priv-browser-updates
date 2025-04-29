@@ -1,9 +1,41 @@
+/// <reference types="@cloudflare/workers-types" />
+
 import { processUpdateRequest } from "./update-service";
 import { handleGitHubCallback } from './auth';
 
+interface KVNamespaceGetOptions<T> {
+  type?: 'text' | 'json' | 'arrayBuffer' | 'stream';
+  cacheTtl?: number;
+}
+
+interface KVNamespaceListOptions {
+  prefix?: string;
+  limit?: number;
+  cursor?: string;
+}
+
+interface KVNamespaceListResult<T> {
+  keys: { name: string; expiration?: number; metadata?: T }[];
+  list_complete: boolean;
+  cursor?: string;
+}
+
+interface KVNamespaceGetWithMetadataResult<T, M> {
+  value: T | null;
+  metadata: M | null;
+}
+
+interface CustomKVNamespace {
+  get(key: string, options?: Partial<KVNamespaceGetOptions<undefined>>): Promise<string | null>;
+  put(key: string, value: string, options?: { expiration?: number; expirationTtl?: number }): Promise<void>;
+  delete(key: string): Promise<void>;
+  list(options?: KVNamespaceListOptions): Promise<KVNamespaceListResult<unknown>>;
+  getWithMetadata<T = unknown>(key: string): Promise<KVNamespaceGetWithMetadataResult<string, T>>;
+}
+
 export interface Env {
   DB: D1Database;
-  CACHE: KVNamespace;
+  CACHE: CustomKVNamespace;
   GITHUB_CLIENT_ID: string;
   GITHUB_CLIENT_SECRET: string;
 }

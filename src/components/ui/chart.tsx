@@ -6,15 +6,15 @@ import { cn } from "@/lib/utils";
 // Format: { THEME_NAME: CSS_SELECTOR }
 const THEMES = { light: "", dark: ".dark" } as const;
 
-export type ChartConfig = {
-  [k in string]: {
-    label?: React.ReactNode;
-    icon?: React.ComponentType;
-  } & (
-    | { color?: string; theme?: never }
-    | { color?: never; theme: Record<keyof typeof THEMES, string> }
-  );
-};
+export type ChartConfigItem = {
+  label?: React.ReactNode;
+  icon?: React.ComponentType;
+} & (
+  | { color?: string; theme?: never }
+  | { color?: never; theme: Record<keyof typeof THEMES, string> }
+);
+
+export type ChartConfig = Record<string, ChartConfigItem>;
 
 type ChartContextProps = {
   config: ChartConfig;
@@ -196,53 +196,31 @@ const ChartTooltipContent = React.forwardRef<
                   indicator === "dot" && "items-center"
                 )}
               >
+                {!hideIndicator && (
+                  <div
+                    className={cn(
+                      "h-2.5 w-2.5 rounded-full",
+                      indicator === "line" && "h-0.5 w-4 rounded-none",
+                      indicator === "dashed" &&
+                        "h-0.5 w-4 rounded-none border-b-2 border-dashed bg-transparent"
+                    )}
+                    style={{
+                      backgroundColor:
+                        indicator !== "dashed" ? indicatorColor : undefined,
+                      borderColor:
+                        indicator === "dashed" ? indicatorColor : undefined,
+                    }}
+                  />
+                )}
                 {formatter && item?.value !== undefined && item.name ? (
                   formatter(item.value, item.name, item, index, item.payload)
                 ) : (
-                  <>
-                    {itemConfig?.icon ? (
-                      <itemConfig.icon />
-                    ) : (
-                      !hideIndicator && (
-                        <div
-                          className={cn(
-                            "shrink-0 rounded-[2px] border-[--color-border] bg-[--color-bg]",
-                            {
-                              "h-2.5 w-2.5": indicator === "dot",
-                              "w-1": indicator === "line",
-                              "w-0 border-[1.5px] border-dashed bg-transparent":
-                                indicator === "dashed",
-                              "my-0.5": nestLabel && indicator === "dashed",
-                            }
-                          )}
-                          style={
-                            {
-                              "--color-bg": indicatorColor,
-                              "--color-border": indicatorColor,
-                            } as React.CSSProperties
-                          }
-                        />
-                      )
-                    )}
-                    <div
-                      className={cn(
-                        "flex flex-1 justify-between leading-none",
-                        nestLabel ? "items-end" : "items-center"
-                      )}
-                    >
-                      <div className="grid gap-1.5">
-                        {nestLabel ? tooltipLabel : null}
-                        <span className="text-muted-foreground">
-                          {itemConfig?.label || item.name}
-                        </span>
-                      </div>
-                      {item.value && (
-                        <span className="font-mono font-medium tabular-nums text-foreground">
-                          {item.value.toLocaleString()}
-                        </span>
-                      )}
-                    </div>
-                  </>
+                  <div className="flex flex-wrap gap-2">
+                    <span className="font-medium">
+                      {itemConfig?.label || item.name}:
+                    </span>
+                    <span>{item.value}</span>
+                  </div>
                 )}
               </div>
             );
@@ -320,24 +298,21 @@ function getPayloadConfigFromPayload(
   key: string
 ) {
   if (
-    !payload ||
-    typeof payload !== "object" ||
-    !("dataKey" in payload) ||
-    !payload.dataKey ||
-    typeof payload.dataKey !== "string"
+    typeof payload === "object" &&
+    payload !== null &&
+    "dataKey" in payload &&
+    typeof payload.dataKey === "string"
   ) {
-    return config[key];
+    return config[payload.dataKey];
   }
 
-  return config[payload.dataKey] || config[key];
+  return config[key];
 }
 
 export {
   ChartContainer as Chart,
-  ChartLegend,
-  ChartLegendContent,
-  ChartStyle,
   ChartTooltip,
   ChartTooltipContent,
-  type ChartConfig,
+  ChartLegend,
+  ChartLegendContent,
 };

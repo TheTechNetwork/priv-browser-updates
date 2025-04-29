@@ -1,71 +1,77 @@
-import apiClient from "./api-client";
+import { apiClient } from './api';
 
 interface GitHubRelease {
+  id: number;
   tag_name: string;
   name: string;
-  published_at: string;
   body: string;
-  assets: {
+  draft: boolean;
+  prerelease: boolean;
+  created_at: string;
+  published_at: string;
+  assets: Array<{
+    id: number;
     name: string;
-    browser_download_url: string;
     size: number;
-  }[];
+    browser_download_url: string;
+  }>;
 }
 
-interface Config {
-  githubOwner: string;
-  githubRepo: string;
-  githubToken: string;
-  cacheDuration: number;
-}
-
-// Cache for GitHub releases
-let releasesCache: {
-  data: GitHubRelease[];
-  timestamp: number;
-} | null = null;
-
-export async function getConfig(): Promise<Config> {
-  const { data } = await apiClient.getConfig();
-  return {
-    githubOwner: data.githubOwner || "",
-    githubRepo: data.githubRepo || "",
-    githubToken: data.githubToken || "",
-    cacheDuration: parseInt(data.cacheDuration || "3600", 10),
+export interface Config {
+  data: {
+    version: string;
+    platform: string;
+    channel: string;
+    githubOwner: string;
+    githubRepo: string;
+    githubToken: string;
+    cacheDuration: number;
   };
 }
 
-export async function fetchGitHubReleases(): Promise<GitHubRelease[]> {
-  const config = await getConfig();
-  
+// Cache for GitHub releases
+interface ReleasesCache {
+  data: GitHubRelease[];
+  timestamp: number;
+}
+
+let releasesCache: ReleasesCache | null = null;
+
+export async function getConfig(): Promise<Config> {
+  const { data } = await apiClient.getConfig();
+  return { data };
+}
+
+export async function getGitHubReleases(config: Config): Promise<GitHubRelease[]> {
   // Check if we have a valid cache
   if (releasesCache && 
-      (Date.now() - releasesCache.timestamp) < config.cacheDuration * 1000) {
+      (Date.now() - releasesCache.timestamp) < config.data.cacheDuration * 1000) {
     return releasesCache.data;
   }
   
   // No valid cache, fetch from GitHub
-  if (!config.githubOwner || !config.githubRepo) {
+  if (!config.data.githubOwner || !config.data.githubRepo) {
     throw new Error("GitHub repository configuration is missing");
   }
-  
-  const headers: Record<string, string> = {
+
+  const headers = {
     "Accept": "application/vnd.github.v3+json",
+    "User-Agent": "Browser Update Service",
   };
   
-  if (config.githubToken) {
-    headers["Authorization"] = `token ${config.githubToken}`;
+  if (config.data.githubToken) {
+    headers["Authorization"] = `token ${config.data.githubToken}`;
   }
   
   const response = await fetch(
-    `https://api.github.com/repos/${config.githubOwner}/${config.githubRepo}/releases`,
+    `https://api.github.com/repos/${config.data.githubOwner}/${config.data.githubRepo}/releases`,
     { headers }
   );
-  
+
   if (!response.ok) {
-    throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
+    throw new Error(`GitHub API error: ${response.status}`);
   }
-  
+
   const releases = await response.json() as GitHubRelease[];
   
   // Update cache
@@ -73,12 +79,12 @@ export async function fetchGitHubReleases(): Promise<GitHubRelease[]> {
     data: releases,
     timestamp: Date.now()
   };
-  
+
   return releases;
 }
 
 export async function syncReleasesToDatabase(): Promise<void> {
-  const releases = await fetchGitHubReleases();
+  const releases = await getGitHubReleases(await getConfig());
   
   for (const release of releases) {
     // Extract version from tag name (assuming format like v1.2.3)
