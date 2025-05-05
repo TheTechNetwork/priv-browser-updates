@@ -1,41 +1,53 @@
-import { renderHook } from "@testing-library/react";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { renderHook, act } from "@testing-library/react";
+import { useIsMobile } from "../../hooks/use-mobile";
 
-// Mock matchMedia
-Object.defineProperty(window, 'matchMedia', {
-  writable: true,
-  value: jest.fn().mockImplementation(query => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addListener: jest.fn(), // Deprecated
-    removeListener: jest.fn(), // Deprecated
-    addEventListener: jest.fn(),
-    removeEventListener: jest.fn(),
-    dispatchEvent: jest.fn(),
-  })),
-});
+const MOBILE_BREAKPOINT = 768;
 
 describe("useIsMobile", () => {
+  let matchMediaMock: jest.Mock;
+
   beforeEach(() => {
-    // Reset the mock implementation before each test
-    jest.clearAllMocks();
-    global.innerWidth = 1024; // Default to desktop size
+    matchMediaMock = jest.fn();
+    window.matchMedia = matchMediaMock;
   });
 
   it("should return false for desktop viewport", () => {
-    // Mock window.innerWidth
-    global.innerWidth = 1024;
+    // Mock desktop viewport
+    window.innerWidth = MOBILE_BREAKPOINT + 100;
+    matchMediaMock.mockImplementation(() => ({
+      matches: false,
+      media: `(max-width: ${MOBILE_BREAKPOINT - 1}px)`,
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+    }));
     
     const { result } = renderHook(() => useIsMobile());
+    
+    act(() => {
+      // Simulate the onChange call
+      matchMediaMock.mock.results[0].value.addEventListener.mock.calls[0][1]();
+    });
+
     expect(result.current).toBe(false);
   });
 
   it("should return true for mobile viewport", () => {
-    // Mock window.innerWidth
-    global.innerWidth = 375;
+    // Mock mobile viewport
+    window.innerWidth = MOBILE_BREAKPOINT - 100;
+    matchMediaMock.mockImplementation(() => ({
+      matches: true,
+      media: `(max-width: ${MOBILE_BREAKPOINT - 1}px)`,
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+    }));
     
     const { result } = renderHook(() => useIsMobile());
+    
+    act(() => {
+      // Simulate the onChange call that sets the initial state
+      matchMediaMock.mock.results[0].value.addEventListener.mock.calls[0][1]();
+    });
+
     expect(result.current).toBe(true);
   });
 
@@ -43,22 +55,17 @@ describe("useIsMobile", () => {
     const addEventListener = jest.fn();
     const removeEventListener = jest.fn();
 
-    window.matchMedia = jest.fn().mockImplementation(query => ({
+    matchMediaMock.mockImplementation(() => ({
       matches: false,
-      media: query,
+      media: `(max-width: ${MOBILE_BREAKPOINT - 1}px)`,
       addEventListener,
       removeEventListener,
     }));
 
     const { unmount } = renderHook(() => useIsMobile());
-    
-    // Check that addEventListener was called
     expect(addEventListener).toHaveBeenCalled();
     
-    // Unmount the hook
     unmount();
-    
-    // Check that removeEventListener was called
     expect(removeEventListener).toHaveBeenCalled();
   });
 });

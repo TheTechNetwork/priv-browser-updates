@@ -26,11 +26,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
       
-      - name: Run tests
+      - name: Run tests with coverage
         run: npm test
-      
-      - name: Generate test coverage report
-        run: npm run test:coverage
       
       - name: Upload coverage report as artifact
         uses: actions/upload-artifact@v4
@@ -47,7 +44,7 @@ jobs:
             ## Test Coverage Report
             
             ```
-            $(cat coverage/lcov-report/index.html | grep -A 5 "<div class='fl pad1y space-right2'>" | sed 's/<[^>]*>//g' | sed 's/^[ \t]*//' | grep -v "^$")
+            $(cat coverage/coverage-summary.json | jq -r '.total | to_entries | .[] | "\(.key): \(.value.pct)%"')
             ```
             
             [View detailed coverage report](https://htmlpreview.github.io/?https://github.com/${{ github.repository }}/blob/${{ github.sha }}/coverage/lcov-report/index.html)

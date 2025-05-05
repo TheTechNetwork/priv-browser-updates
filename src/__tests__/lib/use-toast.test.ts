@@ -1,5 +1,6 @@
 // Instead of importing the actual reducer, we'll create a simplified version for testing
-// This is based on the implementation in use-toast.ts
+import { renderHook, act } from "@testing-library/react";
+import { useToast } from "@/hooks/use-toast";
 
 // Mock setTimeout and clearTimeout
 jest.useFakeTimers();
@@ -40,7 +41,6 @@ const reducer = (state: { toasts: Toast[] }, action: ToastAction): { toasts: Toa
 
     case "DISMISS_TOAST": {
       const { toastId } = action;
-
       return {
         ...state,
         toasts: state.toasts.map((t) =>
@@ -238,30 +238,47 @@ describe('Toast reducer', () => {
   });
 });
 
-import { renderHook } from "@testing-library/react";
-import { useToast } from "@/hooks/use-toast";
+// Mock the toast module
+const mockToastFn = jest.fn();
+const mockDismissFn = jest.fn();
 
-// Mock the toast store
-jest.mock("@/components/ui/use-toast", () => ({
-  useToast: jest.fn(() => ({
-    toast: jest.fn(),
-    dismiss: jest.fn(),
-  })),
+jest.mock("@/hooks/use-toast", () => ({
+  useToast: () => ({
+    toast: mockToastFn,
+    dismiss: mockDismissFn,
+  }),
 }));
 
-// Define proper types for the mock functions
-type ToastFunction = () => {
-  toast: jest.Mock;
-  dismiss: jest.Mock;
-};
-
-// Cast the mock to the proper type
-const mockUseToast = useToast as unknown as ToastFunction;
-
 describe("useToast", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   it("should return toast functions", () => {
-    const { result } = renderHook(() => mockUseToast());
+    const { result } = renderHook(() => useToast());
     expect(result.current.toast).toBeDefined();
     expect(result.current.dismiss).toBeDefined();
+  });
+
+  it("should call toast with correct arguments", () => {
+    const { result } = renderHook(() => useToast());
+    const toastArgs = { title: "Test Toast", description: "Test Description" };
+    
+    act(() => {
+      result.current.toast(toastArgs);
+    });
+    
+    expect(mockToastFn).toHaveBeenCalledWith(toastArgs);
+  });
+
+  it("should call dismiss with correct arguments", () => {
+    const { result } = renderHook(() => useToast());
+    const toastId = "test-id";
+    
+    act(() => {
+      result.current.dismiss(toastId);
+    });
+    
+    expect(mockDismissFn).toHaveBeenCalledWith(toastId);
   });
 });

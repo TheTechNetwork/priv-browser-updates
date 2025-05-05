@@ -66,7 +66,8 @@ describe('Cloudflare Worker Deployment', () => {
     
     // Verify it handles update requests
     expect(indexContent).toContain('/update');
-    expect(indexContent).toContain('handleUpdateRequest');
+    expect(indexContent).toContain('processUpdateRequest');
+    expect(indexContent).toContain('processUpdateRequest');
   });
   
   it('should be able to simulate a deployment', () => {
