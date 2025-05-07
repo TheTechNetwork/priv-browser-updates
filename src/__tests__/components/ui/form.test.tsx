@@ -96,24 +96,42 @@ describe('Form Components', () => {
     
     await user.click(screen.getByRole('button', { name: /submit/i }));
     
-    expect(handleSubmit).toHaveBeenCalledWith({
+    // Only check the first argument (form values), since react-hook-form passes event/context as a second arg
+    expect(handleSubmit.mock.calls[0][0]).toEqual({
       username: 'testuser',
       email: 'test@example.com',
     });
   });
 
-  it('displays validation errors for invalid input', async () => {
+  it('displays validation error for short username', async () => {
     const { user } = setup();
-    
     const usernameInput = screen.getByLabelText(/username/i);
     const emailInput = screen.getByLabelText(/email/i);
-    
+
     await user.type(usernameInput, 'a'); // Too short
-    await user.type(emailInput, 'invalid-email'); // Invalid email
-    
+    await user.type(emailInput, 'test@example.com'); // Valid email
+
     await user.click(screen.getByRole('button', { name: /submit/i }));
-    
-    expect(await screen.findByText(/string must contain at least 2 character/i)).toBeInTheDocument();
+
+    expect(
+      await screen.findByText((content) => /least 2/.test(content) && /character/.test(content))
+    ).toBeInTheDocument();
+  });
+
+  it('displays validation error for invalid email', async () => {
+    const { user } = setup();
+    const usernameInput = screen.getByLabelText(/username/i);
+    const emailInput = screen.getByLabelText(/email/i);
+
+    await user.type(usernameInput, 'validuser'); // Valid username
+    await user.type(emailInput, 'invalid-email'); // Invalid email
+
+    await user.click(screen.getByRole('button', { name: /submit/i }));
+
+    // Debug: log all text content in the DOM after submission
+    // eslint-disable-next-line no-console
+    console.log(document.body.textContent);
+
     expect(await screen.findByText(/invalid email/i)).toBeInTheDocument();
   });
 
@@ -136,7 +154,9 @@ describe('Form Components', () => {
     await user.click(screen.getByRole('button', { name: /submit/i }));
     
     // Verify error appears
-    expect(await screen.findByText(/string must contain at least 2 character/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText((content) => /least 2/.test(content) && /character/.test(content))
+    ).toBeInTheDocument();
     
     // Fix the input
     await user.clear(usernameInput);
@@ -144,7 +164,9 @@ describe('Form Components', () => {
     await user.click(screen.getByRole('button', { name: /submit/i }));
     
     // Verify error disappears
-    expect(screen.queryByText(/string must contain at least 2 character/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText((content) => /least 2/.test(content) && /character/.test(content))
+    ).not.toBeInTheDocument();
   });
 
   it('preserves form description when validation errors occur', async () => {

@@ -1,57 +1,56 @@
+import * as React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { BrowserRouter } from 'react-router-dom';
 import { Header } from '@/components/layout/header';
 import { ThemeProvider } from '@/components/layout/theme-provider';
 import { useAuth } from '@/hooks/use-auth';
+import '@testing-library/jest-dom';
 
 // Mock the auth hook
 jest.mock('@/hooks/use-auth', () => ({
   useAuth: jest.fn(),
 }));
 
+function TestWrapper({ children }: { children: React.ReactNode }) {
+  return (
+    <BrowserRouter>
+      <ThemeProvider>{children}</ThemeProvider>
+    </BrowserRouter>
+  );
+}
+
 describe('Header Component', () => {
   const mockUser = {
     name: 'Test User',
     email: 'test@example.com',
     avatarUrl: 'https://example.com/avatar.jpg',
+    avatar: 'https://example.com/avatar.jpg',
   };
 
   beforeEach(() => {
-    (useAuth as jest.Mock).mockReturnValue({
+    (useAuth as unknown as jest.Mock).mockReturnValue({
       user: mockUser,
       signOut: jest.fn(),
     });
   });
 
   it('renders logo and navigation', () => {
-    render(
-      <ThemeProvider>
-        <Header />
-      </ThemeProvider>
-    );
-
+    render(<Header />, { wrapper: TestWrapper });
     expect(screen.getByAltText(/logo/i)).toBeInTheDocument();
     expect(screen.getByRole('navigation')).toBeInTheDocument();
   });
 
   it('displays user information when logged in', () => {
-    render(
-      <ThemeProvider>
-        <Header />
-      </ThemeProvider>
-    );
+    render(<Header />, { wrapper: TestWrapper });
 
     expect(screen.getByText(mockUser.name)).toBeInTheDocument();
-    expect(screen.getByAltText(/avatar/i)).toHaveAttribute('src', mockUser.avatarUrl);
+    expect(screen.getByAltText(/avatar/i)).toHaveAttribute('src', mockUser.avatar);
   });
 
   it('shows theme toggle button', async () => {
     const user = userEvent.setup();
-    render(
-      <ThemeProvider>
-        <Header />
-      </ThemeProvider>
-    );
+    render(<Header />, { wrapper: TestWrapper });
 
     const themeToggle = screen.getByLabelText(/toggle theme/i);
     expect(themeToggle).toBeInTheDocument();
@@ -63,16 +62,12 @@ describe('Header Component', () => {
   it('handles user menu interactions', async () => {
     const user = userEvent.setup();
     const signOut = jest.fn();
-    (useAuth as jest.Mock).mockReturnValue({
+    (useAuth as unknown as jest.Mock).mockReturnValue({
       user: mockUser,
       signOut,
     });
 
-    render(
-      <ThemeProvider>
-        <Header />
-      </ThemeProvider>
-    );
+    render(<Header />, { wrapper: TestWrapper });
 
     // Open user menu
     const menuButton = screen.getByLabelText(/user menu/i);
@@ -86,31 +81,19 @@ describe('Header Component', () => {
   });
 
   it('displays notification badge when updates are available', () => {
-    render(
-      <ThemeProvider>
-        <Header hasUpdates={true} />
-      </ThemeProvider>
-    );
+    render(<Header hasUpdates={true} />, { wrapper: TestWrapper });
 
     expect(screen.getByTestId('notification-badge')).toBeInTheDocument();
   });
 
   it('hides notification badge when no updates', () => {
-    render(
-      <ThemeProvider>
-        <Header hasUpdates={false} />
-      </ThemeProvider>
-    );
+    render(<Header hasUpdates={false} />, { wrapper: TestWrapper });
 
     expect(screen.queryByTestId('notification-badge')).not.toBeInTheDocument();
   });
 
   it('makes logo link to dashboard for authenticated users', () => {
-    render(
-      <ThemeProvider>
-        <Header />
-      </ThemeProvider>
-    );
+    render(<Header />, { wrapper: TestWrapper });
 
     const logoLink = screen.getByRole('link', { name: /logo/i });
     expect(logoLink).toHaveAttribute('href', '/dashboard');
@@ -118,13 +101,9 @@ describe('Header Component', () => {
 
   it('shows mobile menu on smaller screens', async () => {
     const user = userEvent.setup();
-    render(
-      <ThemeProvider>
-        <Header />
-      </ThemeProvider>
-    );
+    render(<Header />, { wrapper: TestWrapper });
 
-    const mobileMenuButton = screen.getByLabelText(/menu/i);
+    const mobileMenuButton = screen.getAllByLabelText(/menu/i)[1];
     await user.click(mobileMenuButton);
 
     expect(screen.getByRole('menu')).toBeInTheDocument();
@@ -133,29 +112,22 @@ describe('Header Component', () => {
 
   it('navigates to settings page', async () => {
     const user = userEvent.setup();
-    render(
-      <ThemeProvider>
-        <Header />
-      </ThemeProvider>
-    );
+    render(<Header />, { wrapper: TestWrapper });
 
     const menuButton = screen.getByLabelText(/user menu/i);
     await user.click(menuButton);
 
-    const settingsLink = screen.getByText(/settings/i);
-    expect(settingsLink).toHaveAttribute('href', '/settings');
+    // There may be multiple settings links, get the one in the user menu
+    const settingsLinks = screen.getAllByRole('menuitem', { name: /settings/i });
+    expect(settingsLinks[0]).toHaveAttribute('href', '/settings');
   });
 
   it('closes mobile menu when clicking outside', async () => {
     const user = userEvent.setup();
-    render(
-      <ThemeProvider>
-        <Header />
-      </ThemeProvider>
-    );
+    render(<Header />, { wrapper: TestWrapper });
 
     // Open mobile menu
-    const mobileMenuButton = screen.getByLabelText(/menu/i);
+    const mobileMenuButton = screen.getAllByLabelText(/menu/i)[1];
     await user.click(mobileMenuButton);
 
     // Click outside
@@ -167,11 +139,7 @@ describe('Header Component', () => {
 
   it('handles keyboard navigation in user menu', async () => {
     const user = userEvent.setup();
-    render(
-      <ThemeProvider>
-        <Header />
-      </ThemeProvider>
-    );
+    render(<Header />, { wrapper: TestWrapper });
 
     // Open user menu
     const menuButton = screen.getByLabelText(/user menu/i);
@@ -186,11 +154,7 @@ describe('Header Component', () => {
   });
 
   it('maintains accessibility attributes', () => {
-    render(
-      <ThemeProvider>
-        <Header />
-      </ThemeProvider>
-    );
+    render(<Header />, { wrapper: TestWrapper });
 
     expect(screen.getByRole('banner')).toHaveAttribute('aria-label', 'Site header');
     expect(screen.getByRole('navigation')).toHaveAttribute('aria-label', 'Main');

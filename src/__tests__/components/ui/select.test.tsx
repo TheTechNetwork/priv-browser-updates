@@ -43,9 +43,9 @@ describe('Select Component', () => {
     const trigger = screen.getByRole('combobox');
     await user.click(trigger);
 
-    expect(screen.getByText('Option 1')).toBeVisible();
-    expect(screen.getByText('Option 2')).toBeVisible();
-    expect(screen.getByText('Option 3')).toBeVisible();
+    expect(screen.getByRole('option', { name: 'Option 1' })).toBeVisible();
+    expect(screen.getByRole('option', { name: 'Option 2' })).toBeVisible();
+    expect(screen.getByRole('option', { name: 'Option 3' })).toBeVisible();
   });
 
   it('calls onValueChange when selecting an option', async () => {
@@ -54,7 +54,7 @@ describe('Select Component', () => {
     const trigger = screen.getByRole('combobox');
     await user.click(trigger);
     
-    const option2 = screen.getByText('Option 2');
+    const option2 = screen.getByRole('option', { name: 'Option 2' });
     await user.click(option2);
 
     expect(handleValueChange).toHaveBeenCalledWith('option2');
@@ -66,11 +66,11 @@ describe('Select Component', () => {
     const trigger = screen.getByRole('combobox');
     await user.click(trigger);
     
-    const option = screen.getByText('Option 2');
+    const option = screen.getByRole('option', { name: 'Option 2' });
     await user.click(option);
 
     await waitFor(() => {
-      expect(screen.queryByText('Option 3')).not.toBeVisible();
+      expect(screen.queryByRole('option', { name: 'Option 3' })).not.toBeInTheDocument();
     });
   });
 
@@ -106,8 +106,7 @@ describe('Select Component', () => {
   });
 
   it('handles disabled items', async () => {
-    const { user } = setup();
-    
+    const user = userEvent.setup();
     render(
       <Select>
         <SelectTrigger>
@@ -120,10 +119,11 @@ describe('Select Component', () => {
       </Select>
     );
 
-    const trigger = screen.getByRole('combobox');
+    const triggers = screen.getAllByRole('combobox');
+    const trigger = triggers[triggers.length - 1]; // Use the last trigger (from this render)
     await user.click(trigger);
 
-    const option1 = screen.getByText('Option 1');
-    expect(option1.parentElement).toHaveAttribute('data-disabled');
+    const option1 = screen.getByRole('option', { name: 'Option 1' });
+    expect(option1).toHaveAttribute('data-disabled');
   });
 });

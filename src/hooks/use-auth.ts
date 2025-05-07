@@ -1,6 +1,9 @@
 import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { exchangeCodeForToken, getUserData, useAuth } from '@/lib/auth';
+import { useAuth as useAuthStore, exchangeCodeForToken, getUserData } from '@/lib/auth';
+import type { User } from '@/lib/auth';
+
+export const useAuth = useAuthStore;
 
 export function useAuthCallback() {
   const location = useLocation();
@@ -53,4 +56,4 @@ export function useAuthCallback() {
   }, [location, navigate, signOut, setUser]);
 
   return { isLoading, error };
-} 
+}

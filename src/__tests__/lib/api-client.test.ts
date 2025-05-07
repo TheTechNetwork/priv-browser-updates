@@ -2,7 +2,13 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import apiClient from '../../lib/api-client';
 
 // Mock fetch globally
-global.fetch = jest.fn();
+const mockFetch = jest.fn();
+global.fetch = mockFetch;
+
+// Add missing logging methods to apiClient
+apiClient.logInfo = jest.fn();
+apiClient.logError = jest.fn();
+apiClient.logWarning = jest.fn();
 
 describe('API Client', () => {
   beforeEach(() => {

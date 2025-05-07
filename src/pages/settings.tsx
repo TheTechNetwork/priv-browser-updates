@@ -85,7 +85,8 @@ export default function SettingsPage() {
           </div>
 
           <div className="flex justify-center items-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <span className="sr-only">Loading</span>
+            <Loader2 className="h-8 w-8 animate-spin text-primary" aria-label="Loading" />
           </div>
         </main>
         <Footer />

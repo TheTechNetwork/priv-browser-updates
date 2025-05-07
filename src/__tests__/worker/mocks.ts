@@ -1,6 +1,20 @@
 import { jest } from '@jest/globals';
 import type { D1Database, D1Result, D1ExecResult, ExecutionContext } from '@cloudflare/workers-types';
 
+// Setup globals that would be available in a Cloudflare Worker environment
+global.Request = jest.fn().mockImplementation((input, init) => ({
+  url: typeof input === 'string' ? input : input.url,
+  method: init?.method || 'GET',
+  headers: new Map(Object.entries(init?.headers || {})),
+  cf: {},
+})) as unknown as typeof Request;
+
+global.Response = jest.fn().mockImplementation((body, init) => ({
+  body,
+  status: init?.status || 200,
+  headers: new Map(Object.entries(init?.headers || {})),
+})) as unknown as typeof Response;
+
 // Define our own KVNamespace interface that matches what we need
 interface KVNamespaceGetOptions<T> {
   type?: 'text' | 'json' | 'arrayBuffer' | 'stream';
@@ -126,4 +140,4 @@ export const createMockExecutionContext = () => {
     props: {}
   };
   return ctx as ExecutionContext;
-}; 
+};

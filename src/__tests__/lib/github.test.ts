@@ -1,5 +1,16 @@
 import { parseVersionString, compareVersions } from '../../lib/github';
 
+Object.defineProperty(globalThis, 'import', {
+  value: {
+    meta: {
+      env: {
+        DEV: false,
+        VITE_API_URL: '',
+      }
+    }
+  }
+});
+
 describe('parseVersionString', () => {
   it('should parse a simple version string correctly', () => {
     expect(parseVersionString('1.2.3')).toEqual([1, 2, 3]);

@@ -1,7 +1,11 @@
 import axios from 'axios';
 
-// Use the worker URL directly in development
-const API_BASE_URL = import.meta.env.DEV ? 'http://127.0.0.1:8787' : (import.meta.env.VITE_API_URL || '');
+let API_BASE_URL = '';
+if (process.env.NODE_ENV !== 'test') {
+  // Only import the Vite-specific code outside of tests
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  API_BASE_URL = require('./api-base-url').getApiBaseUrl();
+}
 
 const axiosInstance = axios.create({
   baseURL: API_BASE_URL,

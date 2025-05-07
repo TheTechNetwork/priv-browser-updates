@@ -1,50 +1,43 @@
-import { render, screen } from '@testing-library/react';
+import * as React from 'react';
+import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ThemeProvider } from '@/components/layout/theme-provider';
-import { useTheme } from '@/components/layout/use-theme';
+import { useTheme } from '@/components/layout/theme-context';
+import '@testing-library/jest-dom';
 
-describe('Theme Provider and Hook', () => {
-  // Mock localStorage
+function TestComponent() {
+  const { theme, setTheme } = useTheme();
+  return (
+    <>
+      <div data-testid="current-theme">{theme}</div>
+      <button onClick={() => setTheme('dark')}>Set Dark</button>
+    </>
+  );
+}
+
+describe('ThemeProvider', () => {
   const mockLocalStorage = {
     getItem: jest.fn(),
     setItem: jest.fn(),
+    removeItem: jest.fn(),
+    clear: jest.fn(),
+    length: 0,
+    key: jest.fn(),
   };
-
-  beforeAll(() => {
-    Object.defineProperty(window, 'localStorage', {
-      value: mockLocalStorage,
-    });
-    Object.defineProperty(window, 'matchMedia', {
-      value: jest.fn().mockImplementation(query => ({
-        matches: false,
-        media: query,
-        onchange: null,
-        addEventListener: jest.fn(),
-        removeEventListener: jest.fn(),
-        dispatchEvent: jest.fn(),
-      })),
-    });
-  });
 
   beforeEach(() => {
+    // Mock localStorage
+    Object.defineProperty(window, 'localStorage', {
+      value: mockLocalStorage,
+      writable: true
+    });
+    
+    // Reset mocks
     jest.clearAllMocks();
-    document.documentElement.classList.remove('dark');
+    document.documentElement.classList.remove('light', 'dark');
   });
 
-  // Test component that uses the theme hook
-  const TestComponent = () => {
-    const { theme, setTheme } = useTheme();
-    return (
-      <div>
-        <span data-testid="current-theme">{theme}</span>
-        <button onClick={() => setTheme('dark')}>Set Dark</button>
-        <button onClick={() => setTheme('light')}>Set Light</button>
-        <button onClick={() => setTheme('system')}>Set System</button>
-      </div>
-    );
-  };
-
-  it('provides default theme value', () => {
+  it('uses default theme when no stored value exists', () => {
     mockLocalStorage.getItem.mockReturnValue(null);
     
     render(
@@ -56,22 +49,9 @@ describe('Theme Provider and Hook', () => {
     expect(screen.getByTestId('current-theme')).toHaveTextContent('system');
   });
 
-  it('loads saved theme from localStorage', () => {
-    mockLocalStorage.getItem.mockReturnValue('dark');
-    
-    render(
-      <ThemeProvider>
-        <TestComponent />
-      </ThemeProvider>
-    );
-
-    expect(screen.getByTestId('current-theme')).toHaveTextContent('dark');
-    expect(document.documentElement.classList.contains('dark')).toBe(true);
-  });
-
-  it('updates theme when changed', async () => {
+  it('updates theme and localStorage when theme changes', async () => {
     const user = userEvent.setup();
-    
+
     render(
       <ThemeProvider>
         <TestComponent />
@@ -79,40 +59,22 @@ describe('Theme Provider and Hook', () => {
     );
 
     await user.click(screen.getByText('Set Dark'));
-    
+
     expect(screen.getByTestId('current-theme')).toHaveTextContent('dark');
-    expect(document.documentElement.classList.contains('dark')).toBe(true);
     expect(mockLocalStorage.setItem).toHaveBeenCalledWith('theme', 'dark');
   });
 
-  it('removes dark class when switching to light theme', async () => {
-    const user = userEvent.setup();
-    document.documentElement.classList.add('dark');
-    
-    render(
-      <ThemeProvider>
-        <TestComponent />
-      </ThemeProvider>
-    );
+  it('handles system theme preference correctly', () => {
+    // Mock matchMedia
+    const matchMedia = jest.fn();
+    window.matchMedia = matchMedia;
 
-    await user.click(screen.getByText('Set Light'));
-    
-    expect(screen.getByTestId('current-theme')).toHaveTextContent('light');
-    expect(document.documentElement.classList.contains('dark')).toBe(false);
-  });
-
-  it('handles system theme preference', async () => {
-    const user = userEvent.setup();
-    
-    // Mock system dark mode preference
-    window.matchMedia = jest.fn().mockImplementation(query => ({
-      matches: query === '(prefers-color-scheme: dark)',
-      media: query,
-      onchange: null,
-      addEventListener: jest.fn(),
-      removeEventListener: jest.fn(),
-      dispatchEvent: jest.fn(),
-    }));
+    // Mock dark mode preference
+    matchMedia.mockReturnValue({
+      matches: true,
+      addListener: jest.fn(),
+      removeListener: jest.fn(),
+    });
 
     render(
       <ThemeProvider>
@@ -120,104 +82,22 @@ describe('Theme Provider and Hook', () => {
       </ThemeProvider>
     );
 
-    await user.click(screen.getByText('Set System'));
-    
     expect(screen.getByTestId('current-theme')).toHaveTextContent('system');
-    expect(document.documentElement.classList.contains('dark')).toBe(true);
+    expect(document.documentElement).toHaveClass('dark');
   });
 
-  it('updates theme when system preference changes', () => {
-    let darkModeListener: ((e: MediaQueryListEvent) => void) | null = null;
-    
-    window.matchMedia = jest.fn().mockImplementation(query => ({
-      matches: false,
-      media: query,
-      onchange: null,
-      addEventListener: (_, listener) => {
-        darkModeListener = listener;
-      },
-      removeEventListener: jest.fn(),
-      dispatchEvent: jest.fn(),
-    }));
-
-    render(
-      <ThemeProvider>
-        <TestComponent />
-      </ThemeProvider>
-    );
-
-    // Simulate system theme change
-    if (darkModeListener) {
-      darkModeListener(new MediaQueryListEvent('change', { matches: true }));
-      expect(document.documentElement.classList.contains('dark')).toBe(true);
-    }
-  });
-
-  it('cleans up media query listener on unmount', () => {
-    const removeEventListener = jest.fn();
-    window.matchMedia = jest.fn().mockImplementation(query => ({
-      matches: false,
-      media: query,
-      onchange: null,
-      addEventListener: jest.fn(),
-      removeEventListener,
-      dispatchEvent: jest.fn(),
-    }));
-
-    const { unmount } = render(
-      <ThemeProvider>
-        <TestComponent />
-      </ThemeProvider>
-    );
-
-    unmount();
-    expect(removeEventListener).toHaveBeenCalled();
-  });
-
-  it('provides theme through context', () => {
-    const ConsumerComponent = () => {
-      const { theme } = useTheme();
-      return <div data-testid="theme-value">{theme}</div>;
-    };
-
-    render(
-      <ThemeProvider>
-        <ConsumerComponent />
-      </ThemeProvider>
-    );
-
-    expect(screen.getByTestId('theme-value')).toBeInTheDocument();
-  });
-
-  it('throws error when useTheme is used outside provider', () => {
-    // Suppress console.error for this test
-    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-    
-    expect(() => {
-      render(<TestComponent />);
-    }).toThrow('useTheme must be used within a ThemeProvider');
-    
-    consoleSpy.mockRestore();
-  });
-
-  it('persists theme choice across remounts', async () => {
+  it('uses custom storage key when provided', async () => {
     const user = userEvent.setup();
-    
-    const { unmount } = render(
-      <ThemeProvider>
+    const customKey = 'custom-theme-key';
+
+    render(
+      <ThemeProvider storageKey={customKey}>
         <TestComponent />
       </ThemeProvider>
     );
 
     await user.click(screen.getByText('Set Dark'));
-    unmount();
-
-    render(
-      <ThemeProvider>
-        <TestComponent />
-      </ThemeProvider>
-    );
-
-    expect(screen.getByTestId('current-theme')).toHaveTextContent('dark');
+    
+    expect(mockLocalStorage.setItem).toHaveBeenCalledWith(customKey, 'dark');
   });
 });

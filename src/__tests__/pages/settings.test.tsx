@@ -2,12 +2,15 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Settings from '@/pages/settings';
-import apiClient from '@/lib/api-client';
+import { apiClient } from '@/lib/api';
+import { Toaster } from '@/components/ui/toaster';
 
 // Mock API client
-jest.mock('@/lib/api-client', () => ({
-  getConfig: jest.fn(),
-  updateConfig: jest.fn(),
+jest.mock('@/lib/api', () => ({
+  apiClient: {
+    get: jest.fn(),
+    put: jest.fn(),
+  },
 }));
 
 // Mock layout components
@@ -19,15 +22,10 @@ jest.mock('@/components/layout/footer', () => ({
   Footer: () => <div data-testid="mock-footer">Footer</div>,
 }));
 
-const mockConfig = {
-  githubToken: 'test-token',
-  githubOwner: 'test-owner',
-  githubRepo: 'test-repo',
+const mockSettings = {
   stableChannel: true,
   betaChannel: false,
   devChannel: false,
-  syncInterval: 3600,
-  autoSync: true,
 };
 
 describe('Settings Page', () => {
@@ -43,6 +41,7 @@ describe('Settings Page', () => {
     const user = userEvent.setup();
     const utils = render(
       <QueryClientProvider client={queryClient}>
+        <Toaster />
         <Settings />
       </QueryClientProvider>
     );
@@ -53,8 +52,8 @@ describe('Settings Page', () => {
   };
 
   beforeEach(() => {
-    (apiClient.getConfig as jest.Mock).mockResolvedValue(mockConfig);
-    (apiClient.updateConfig as jest.Mock).mockResolvedValue({ ...mockConfig });
+    (apiClient.get as jest.Mock).mockResolvedValue({ data: mockSettings });
+    (apiClient.put as jest.Mock).mockResolvedValue({});
   });
 
   afterEach(() => {
@@ -70,7 +69,8 @@ describe('Settings Page', () => {
 
     // Wait for data to load
     await waitFor(() => {
-      expect(screen.getByText(/update channels/i)).toBeInTheDocument();
+      // There are multiple elements with this text, so use getAllByText
+      expect(screen.getAllByText(/update channels/i).length).toBeGreaterThan(0);
     });
 
     // Verify channels state
@@ -99,14 +99,14 @@ describe('Settings Page', () => {
     await user.click(saveButton);
 
     // Verify API call
-    expect(apiClient.updateConfig).toHaveBeenCalledWith({
-      ...mockConfig,
+    expect(apiClient.put).toHaveBeenCalledWith('/api/settings', {
+      ...mockSettings,
       betaChannel: true,
     });
 
-    // Should show success message
+    // Should show success message (toast may be rendered in a portal, so check document.body)
     await waitFor(() => {
-      expect(screen.getByText(/settings saved/i)).toBeInTheDocument();
+      expect(document.body.textContent).toMatch(/settings saved/i);
     });
   });
 
@@ -129,8 +129,8 @@ describe('Settings Page', () => {
     await user.click(saveButton);
 
     // Verify API call with all changes
-    expect(apiClient.updateConfig).toHaveBeenCalledWith({
-      ...mockConfig,
+    expect(apiClient.put).toHaveBeenCalledWith('/api/settings', {
+      ...mockSettings,
       betaChannel: true,
       devChannel: true,
     });
@@ -138,7 +138,7 @@ describe('Settings Page', () => {
 
   it('handles API errors gracefully', async () => {
     // Mock API error
-    (apiClient.updateConfig as jest.Mock).mockRejectedValueOnce(new Error('Failed to save settings'));
+    (apiClient.put as jest.Mock).mockRejectedValueOnce(new Error('Failed to save settings'));
     
     const { user } = setup();
 
@@ -154,16 +154,16 @@ describe('Settings Page', () => {
     const saveButton = screen.getByRole('button', { name: /save changes/i });
     await user.click(saveButton);
 
-    // Should show error message
+    // Should show error message (toast may be rendered in a portal, so check document.body)
     await waitFor(() => {
-      expect(screen.getByText(/failed to save settings/i)).toBeInTheDocument();
+      expect(document.body.textContent).toMatch(/failed to save settings/i);
     });
   });
 
   it('disables save button while saving', async () => {
     // Make the API call take some time
-    (apiClient.updateConfig as jest.Mock).mockImplementationOnce(() => 
-      new Promise(resolve => setTimeout(() => resolve(mockConfig), 1000))
+    (apiClient.put as jest.Mock).mockImplementationOnce(() => 
+      new Promise(resolve => setTimeout(() => resolve({}), 1000))
     );
 
     const { user } = setup();
@@ -187,7 +187,7 @@ describe('Settings Page', () => {
 
   it('maintains form state after failed save', async () => {
     // Mock API error
-    (apiClient.updateConfig as jest.Mock).mockRejectedValueOnce(new Error('Failed to save settings'));
+    (apiClient.put as jest.Mock).mockRejectedValueOnce(new Error('Failed to save settings'));
     
     const { user } = setup();
 

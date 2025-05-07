@@ -1,51 +1,57 @@
+import { cn } from '@/lib/utils';
+
 // Create a simple test for the cn function
 // Instead of trying to mock clsx and tailwind-merge, we'll test the function's behavior directly
 
 describe('cn utility function', () => {
-  // Mock implementation of cn for testing
-  const mockCn = (...inputs) => {
-    // This is a simplified version that just joins strings with spaces
-    return inputs
-      .filter(Boolean)
-      .map(input => {
-        if (Array.isArray(input)) {
-          return input.filter(Boolean).join(' ');
-        }
-        if (typeof input === 'object' && input !== null) {
-          return Object.keys(input)
-            .filter(key => input[key])
-            .join(' ');
-        }
-        return input;
-      })
-      .filter(Boolean)
-      .join(' ');
-  };
-
-  it('should combine class names correctly', () => {
-    const result = mockCn('class1', 'class2', 'class3');
-    expect(result).toBe('class1 class2 class3');
+  it('combines class names correctly', () => {
+    expect(cn('class1', 'class2')).toBe('class1 class2');
   });
 
-  it('should handle conditional class names', () => {
+  it('handles conditional classes', () => {
     const condition = true;
-    const result = mockCn('class1', condition && 'class2', !condition && 'class3');
-    expect(result).toBe('class1 class2');
+    expect(cn('class1', condition && 'class2')).toBe('class1 class2');
+    expect(cn('class1', !condition && 'class2')).toBe('class1');
   });
 
-  it('should handle array of class names', () => {
-    const result = mockCn(['class1', 'class2'], 'class3');
-    expect(result).toBe('class1 class2 class3');
+  it('handles array input', () => {
+    expect(cn(['class1', 'class2'], 'class3')).toBe('class1 class2 class3');
   });
 
-  it('should handle object notation for conditional classes', () => {
-    const result = mockCn('class1', { 'class2': true, 'class3': false });
-    expect(result).toBe('class1 class2');
+  it('handles object syntax', () => {
+    expect(cn('base', { 'class1': true, 'class2': false })).toBe('base class1');
   });
 
-  it('should handle empty or falsy inputs', () => {
-    const shouldAddClass = false;
-    const result = mockCn('class1', '', null, undefined, shouldAddClass && 'class2');
-    expect(result).toBe('class1');
+  it('merges Tailwind classes correctly', () => {
+    // Test Tailwind class merging
+    expect(cn('p-4 px-2', 'p-2')).toBe('p-2');
+    expect(cn('text-red-500', 'text-blue-500')).toBe('text-blue-500');
+    expect(cn('bg-red-500 hover:bg-blue-500', 'bg-green-500')).toBe('hover:bg-blue-500 bg-green-500');
+  });
+
+  it('handles undefined and null inputs', () => {
+    expect(cn('class1', undefined, null, 'class2')).toBe('class1 class2');
+  });
+
+  it('handles empty strings', () => {
+    expect(cn('', 'class1', '', 'class2')).toBe('class1 class2');
+  });
+
+  it('handles multiple conditional classes', () => {
+    const isActive = true;
+    const isDisabled = false;
+    expect(cn(
+      'base',
+      isActive && 'active',
+      isDisabled && 'disabled',
+      { 'selected': true, 'highlighted': false }
+    )).toBe('base active selected');
+  });
+
+  it('handles Tailwind responsive classes', () => {
+    expect(cn(
+      'sm:p-2 md:p-4',
+      'sm:p-4'
+    )).toBe('md:p-4 sm:p-4');
   });
 });

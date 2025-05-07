@@ -1,6 +1,8 @@
-// Instead of importing the actual reducer, we'll create a simplified version for testing
-import { renderHook, act } from "@testing-library/react";
-import { useToast } from "@/hooks/use-toast";
+import * as React from 'react';
+import { renderHook } from '@testing-library/react';
+import { act } from 'react';
+import { useToast } from '@/hooks/use-toast';
+import '@testing-library/jest-dom';
 
 // Mock setTimeout and clearTimeout
 jest.useFakeTimers();
@@ -10,9 +12,11 @@ const TOAST_LIMIT = 1;
 
 interface Toast {
   id: string;
-  title: string;
+  title?: string;
   description?: string;
-  open: boolean;
+  duration?: number;
+  variant?: 'default' | 'destructive';
+  open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }
 
@@ -235,6 +239,45 @@ describe('Toast reducer', () => {
     );
     
     expect(state.toasts).toHaveLength(0);
+  });
+
+  it('should dismiss toast after duration', async () => {
+    jest.useFakeTimers();
+    
+    const { result } = renderHook(() => useToast());
+    
+    act(() => {
+      result.current.toast({
+        ...mockToast,
+        duration: 1000,
+      });
+    });
+
+    expect(result.current.toasts).toHaveLength(1);
+    
+    act(() => {
+      jest.advanceTimersByTime(1000);
+    });
+
+    expect(result.current.toasts).toHaveLength(0);
+    
+    jest.useRealTimers();
+  });
+
+  it('should update existing toast', () => {
+    const { result } = renderHook(() => useToast());
+    
+    act(() => {
+      result.current.toast(mockToast);
+    });
+
+    const updatedTitle = 'Updated Toast';
+    
+    act(() => {
+      result.current.update('1', { title: updatedTitle });
+    });
+
+    expect(result.current.toasts[0].title).toBe(updatedTitle);
   });
 });
 

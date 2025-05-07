@@ -8,6 +8,7 @@ import {
   DialogFooter,
   DialogTitle,
   DialogDescription,
+  DialogClose,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 
@@ -28,7 +29,9 @@ describe('Dialog Component', () => {
           </DialogHeader>
           <div>Dialog Content</div>
           <DialogFooter>
-            <Button>Close</Button>
+            <DialogClose asChild>
+              <Button>Close</Button>
+            </DialogClose>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -59,9 +62,10 @@ describe('Dialog Component', () => {
     const trigger = screen.getByRole('button', { name: /open dialog/i });
     await user.click(trigger);
 
-    // Click close button
-    const closeButton = screen.getByRole('button', { name: /close/i });
-    await user.click(closeButton);
+    // There are two close buttons, get the one in the footer (first one)
+    const closeButtons = screen.getAllByRole('button', { name: /close/i });
+    // The footer button is rendered before the top-right button
+    await user.click(closeButtons[0]);
 
     // Wait for dialog to be removed
     await waitFor(() => {
@@ -76,9 +80,10 @@ describe('Dialog Component', () => {
     const trigger = screen.getByRole('button', { name: /open dialog/i });
     await user.click(trigger);
 
-    // Click the backdrop/overlay
-    const dialog = screen.getByRole('dialog');
-    await user.click(dialog.parentElement!);
+    // Click the overlay (query by class)
+    const overlay = document.querySelector('.bg-black\\/80');
+    if (!overlay) throw new Error('Overlay not found');
+    await user.click(overlay);
 
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
@@ -96,17 +101,20 @@ describe('Dialog Component', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
-  it('renders with custom className', () => {
+  it('renders with custom className', async () => {
     render(
       <Dialog>
+        <DialogTrigger asChild>
+          <Button>Open Dialog</Button>
+        </DialogTrigger>
         <DialogContent className="custom-class">
           <div>Content</div>
         </DialogContent>
       </Dialog>
     );
 
-    const trigger = screen.getByRole('button');
-    userEvent.click(trigger);
+    const trigger = screen.getByRole('button', { name: /open dialog/i });
+    await userEvent.click(trigger);
 
     const content = screen.getByText('Content').parentElement;
     expect(content).toHaveClass('custom-class');
@@ -119,9 +127,9 @@ describe('Dialog Component', () => {
     const trigger = screen.getByRole('button', { name: /open dialog/i });
     await user.click(trigger);
 
-    // Verify focus is trapped within dialog
+    // Verify focus is within the dialog
     const dialog = screen.getByRole('dialog');
-    expect(document.activeElement).toBeInTheDocument();
-    expect(dialog).toContain(document.activeElement);
+    const active = document.activeElement;
+    expect(dialog.contains(active)).toBe(true);
   });
 });

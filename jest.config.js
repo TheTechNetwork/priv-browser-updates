@@ -2,28 +2,21 @@
 const config = {
   preset: 'ts-jest',
   testEnvironment: 'jsdom',
+  setupFilesAfterEnv: ['<rootDir>/src/setupTests.ts'],
   moduleNameMapper: {
-    '^.+\\.svg$': '<rootDir>/src/__mocks__/svgMock.js',
-    '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
-    '^@/(.*)$': '<rootDir>/src/$1'
+    '^@/(.*)$': '<rootDir>/src/$1',
+    '\\.svg$': '<rootDir>/src/__mocks__/svgMock.js'
   },
   transform: {
     '^.+\\.(ts|tsx)$': ['ts-jest', {
-      useESM: false,
+      diagnostics: {
+        ignoreCodes: [1343] // Ignore 'import.meta' errors
+      },
+      useESM: true
     }],
   },
-  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
-  // Tests to run
-  testMatch: [
-    '**/src/__tests__/lib/utils.test.ts',
-    '**/src/__tests__/lib/github.mock.test.ts',
-    '**/src/__tests__/lib/update-service.mock.test.ts',
-    '**/src/__tests__/lib/use-toast.test.ts',
-    '**/src/__tests__/hooks/use-mobile.test.tsx',
-    '**/src/__tests__/worker/deployment.test.ts',
-    '**/src/__tests__/worker/deploy-check.test.ts'
-  ],
-  // Coverage configuration
+  setupFiles: ['<rootDir>/test-env.js'],
+  testMatch: ['**/__tests__/**/*.[jt]s?(x)', '**/?(*.)+(spec|test).[jt]s?(x)'],
   collectCoverage: true,
   coverageDirectory: 'coverage',
   coverageReporters: ['json', 'lcov', 'text', 'clover', 'json-summary'],
@@ -33,7 +26,14 @@ const config = {
     '!src/**/*.test.{ts,tsx}',
     '!src/__mocks__/**',
     '!src/__tests__/**'
-  ]
+  ],
+  verbose: true,
+  testTimeout: 10000,
+  maxWorkers: '50%',
+  watchPathIgnorePatterns: ['<rootDir>/node_modules/'],
+  clearMocks: true,
+  resetMocks: false,
+  restoreMocks: false
 };
 
 export default config;

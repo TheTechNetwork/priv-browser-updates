@@ -1,17 +1,18 @@
-import { renderHook, act } from "@testing-library/react";
-import { useIsMobile } from "../../hooks/use-mobile";
+import * as React from 'react';
+import { renderHook } from '@testing-library/react';
+import { act } from 'react';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { MOBILE_BREAKPOINT } from '@/lib/constants';
+import '@testing-library/jest-dom';
 
-const MOBILE_BREAKPOINT = 768;
-
-describe("useIsMobile", () => {
-  let matchMediaMock: jest.Mock;
+describe('useIsMobile', () => {
+  const matchMediaMock = jest.fn();
 
   beforeEach(() => {
-    matchMediaMock = jest.fn();
     window.matchMedia = matchMediaMock;
   });
 
-  it("should return false for desktop viewport", () => {
+  it('should return false for desktop viewport', () => {
     // Mock desktop viewport
     window.innerWidth = MOBILE_BREAKPOINT + 100;
     matchMediaMock.mockImplementation(() => ({
@@ -24,7 +25,7 @@ describe("useIsMobile", () => {
     const { result } = renderHook(() => useIsMobile());
     
     act(() => {
-      // Simulate the onChange call
+      // Simulate the onChange call that sets the initial state
       matchMediaMock.mock.results[0].value.addEventListener.mock.calls[0][1]();
     });
 

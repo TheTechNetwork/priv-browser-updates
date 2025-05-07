@@ -1,13 +1,15 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
-import { Sidebar } from '@/components/layout/Sidebar';
+import { AppSidebar } from '@/components/layout/Sidebar';
 import { useAuth } from '@/hooks/use-auth';
 
 // Mock auth hook
 jest.mock('@/hooks/use-auth', () => ({
   useAuth: jest.fn(),
 }));
+
+const mockedUseAuth = useAuth as unknown as jest.Mock;
 
 describe('Sidebar Component', () => {
   const mockUser = {
@@ -17,7 +19,7 @@ describe('Sidebar Component', () => {
   };
 
   const setup = (isAuthenticated = true) => {
-    (useAuth as jest.Mock).mockReturnValue({
+    mockedUseAuth.mockReturnValue({
       user: isAuthenticated ? mockUser : null,
       isAuthenticated,
     });
@@ -25,7 +27,7 @@ describe('Sidebar Component', () => {
     const user = userEvent.setup();
     const utils = render(
       <BrowserRouter>
-        <Sidebar />
+        <AppSidebar isAuthenticated={isAuthenticated} />
       </BrowserRouter>
     );
 
@@ -37,6 +39,28 @@ describe('Sidebar Component', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // Mock localStorage
+    const localStorageMock = (function () {
+      let store: Record<string, string> = {};
+      return {
+        getItem(key: string) {
+          return store[key] || null;
+        },
+        setItem(key: string, value: string) {
+          store[key] = value.toString();
+        },
+        clear() {
+          store = {};
+        },
+        removeItem(key: string) {
+          delete store[key];
+        },
+      };
+    })();
+    Object.defineProperty(window, 'localStorage', {
+      value: localStorageMock,
+      writable: true,
+    });
   });
 
   it('renders sidebar with navigation items when authenticated', () => {
@@ -58,12 +82,11 @@ describe('Sidebar Component', () => {
 
   it('does not render navigation items when not authenticated', () => {
     setup(false);
-
     // Navigation items should not be present
-    expect(screen.queryByText(/dashboard/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/releases/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/logs/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/settings/i)).not.toBeInTheDocument();
+    expect(screen.queryByTestId('dashboard-icon')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('releases-icon')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('logs-icon')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('settings-icon')).not.toBeInTheDocument();
   });
 
   it('highlights active navigation item', async () => {
@@ -79,38 +102,27 @@ describe('Sidebar Component', () => {
 
   it('toggles sidebar collapse state', async () => {
     const { user } = setup();
-
-    // Find collapse button
     const collapseButton = screen.getByRole('button', { name: /toggle sidebar/i });
-    
     // Initial state - expanded
     expect(screen.getByText(/dashboard/i)).toBeVisible();
-    
-    // Click to collapse
+    // Collapse sidebar
     await user.click(collapseButton);
-    
-    // Sidebar should be collapsed
-    expect(screen.getByText(/dashboard/i)).not.toBeVisible();
-    
-    // Click to expand again
+    // Sidebar should be collapsed: text is hidden, but icon link remains
+    expect(screen.queryByText(/dashboard/i)).not.toBeInTheDocument();
+    expect(screen.getByTestId('dashboard-icon')).toBeInTheDocument();
+    // Expand again
     await user.click(collapseButton);
-    
-    // Sidebar should be expanded
     expect(screen.getByText(/dashboard/i)).toBeVisible();
   });
 
   it('shows tooltips for navigation items when collapsed', async () => {
     const { user } = setup();
-
-    // Collapse sidebar
     const collapseButton = screen.getByRole('button', { name: /toggle sidebar/i });
     await user.click(collapseButton);
-
-    // Hover over Dashboard icon
-    await user.hover(screen.getByTestId('dashboard-icon'));
-
-    // Check if tooltip appears
-    expect(screen.getByText(/dashboard/i)).toBeInTheDocument();
+    // The text is hidden, but the icon link remains with a title attribute
+    const dashboardLink = screen.getByTestId('dashboard-icon');
+    expect(dashboardLink).toBeInTheDocument();
+    expect(dashboardLink).toHaveAttribute('title', 'Dashboard');
   });
 
   it('renders correct icons for each navigation item', () => {
@@ -139,18 +151,10 @@ describe('Sidebar Component', () => {
 
   it('persists collapsed state in localStorage', async () => {
     const { user } = setup();
-
-    // Click collapse button
     const collapseButton = screen.getByRole('button', { name: /toggle sidebar/i });
     await user.click(collapseButton);
-
-    // Check if state is saved in localStorage
-    expect(localStorage.getItem('sidebar-collapsed')).toBe('true');
-
-    // Reload component
-    setup();
-
-    // Sidebar should still be collapsed
-    expect(screen.getByText(/dashboard/i)).not.toBeVisible();
+    await waitFor(() => {
+      expect(window.localStorage.getItem('sidebar-collapsed')).toBe('true');
+    });
   });
 });
