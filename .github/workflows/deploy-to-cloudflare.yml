@@ -98,4 +98,10 @@ jobs:
 
       - name: Deploy Worker
         working-directory: ./worker
+        env:
+          GITHUB_CLIENT_ID: ${{ secrets.CF_GITHUB_CLIENT_ID }}
+          GITHUB_CLIENT_SECRET: ${{ secrets.CF_GITHUB_CLIENT_SECRET }}
+          GITHUB_OWNER: ${{ secrets.CF_GITHUB_OWNER }}
+          GITHUB_REPO: ${{ secrets.CF_GITHUB_REPO }}
+          GITHUB_TOKEN: ${{ secrets.CF_GITHUB_TOKEN }}
         run: npx wrangler deploy
