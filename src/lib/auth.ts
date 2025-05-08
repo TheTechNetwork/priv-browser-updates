@@ -19,7 +19,7 @@ export interface AuthState {
 }
 
 const GITHUB_CLIENT_ID = import.meta.env.VITE_GITHUB_CLIENT_ID;
-const GITHUB_REDIRECT_URI = `http://127.0.0.1:8787/api/auth/github/callback`;
+const GITHUB_REDIRECT_URI = `${import.meta.env.VITE_API_URL}/api/auth/github/callback`;
 
 interface GitHubUserData {
   id: number;
