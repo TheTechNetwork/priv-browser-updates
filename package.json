@@ -15,7 +15,6 @@
     "test:coverage": "jest --coverage"
   },
   "dependencies": {
-    "@auth/core": "^0.39.0",
     "@hookform/resolvers": "^5.0.0",
     "@radix-ui/react-accordion": "^1.2.2",
     "@radix-ui/react-alert-dialog": "^1.1.4",
@@ -44,7 +43,6 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.0.0",
     "embla-carousel-react": "^8.5.2",
-    "framer-motion": "^12.4.0",
     "lucide-react": "^0.508.0",
     "next-themes": "^0.4.4",
     "react": "^19.1.0",
@@ -56,7 +54,6 @@
     "sonner": "^2.0.0",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
-    "uuid": "^11.0.5",
     "vaul": "^1.1.2",
     "zod": "^3.24.1",
     "zustand": "^5.0.3"
@@ -64,6 +61,7 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240320.1",
     "@eslint/js": "^9.17.0",
+    "@jest/globals": "^29.7.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.6.1",
@@ -72,6 +70,7 @@
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "@typescript-eslint/eslint-plugin": "^8.31.0",
+    "@typescript-eslint/parser": "^8.32.0",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
     "babel-plugin-transform-import-meta": "^2.3.2",
