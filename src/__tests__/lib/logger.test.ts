@@ -152,7 +152,6 @@ describe('Logger', () => {
     });
 
     it('handles invalid log levels gracefully', () => {
-      // @ts-expect-error - Testing invalid log level
       logger.setLevel('INVALID');
       
       logger.info('Should still work');

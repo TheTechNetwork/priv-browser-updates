@@ -1,5 +1,4 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import type { CfProperties } from '@cloudflare/workers-types';
 
 // Mock the Response class
 class MockResponse implements Partial<Response> {
@@ -72,8 +71,8 @@ const mockCtx = {
   waitUntil: jest.fn()
 };
 
-// Mock the fetch function
-const mockFetch = jest.fn().mockImplementation(async (request: Request): Promise<MockResponse> => {
+// @ts-expect-error
+const mockFetch = (jest.fn().mockImplementation(async (request: Request): Promise<MockResponse> => {
   const url = new URL(request.url);
   
   if (url.pathname === '/update') {
@@ -94,10 +93,10 @@ const mockFetch = jest.fn().mockImplementation(async (request: Request): Promise
   } else {
     return new MockResponse('Not found', { status: 404 });
   }
-});
+}) as unknown as any) as any;
 
 // Create a mock worker handler
-const mockWorkerHandler = {
+const mockWorkerHandler: any = {
   fetch: mockFetch
 };
 

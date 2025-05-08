@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { MoonIcon, SunIcon, GithubIcon, MenuIcon, BellIcon, UserIcon, LogOutIcon, Settings as SettingsIcon } from "lucide-react";
+import { MoonIcon, SunIcon, MenuIcon, LogOutIcon, Settings as SettingsIcon } from "lucide-react";
 import { useTheme } from "@/components/layout/theme-context";
 import { useAuth } from "@/hooks/use-auth";
 import React, { useState } from "react";

@@ -1,4 +1,3 @@
-import * as React from 'react';
 import { renderHook } from '@testing-library/react';
 import { act } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';

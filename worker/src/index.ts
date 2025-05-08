@@ -4,7 +4,7 @@ import { processUpdateRequest } from "./update-service";
 import { handleGitHubCallback } from './auth';
 import { fetchGitHubReleases, syncReleasesToDatabase } from './github';
 
-interface KVNamespaceGetOptions<T> {
+interface KVNamespaceGetOptions {
   type?: 'text' | 'json' | 'arrayBuffer' | 'stream';
   cacheTtl?: number;
 }
@@ -21,13 +21,13 @@ interface KVNamespaceListResult<T> {
   cursor?: string;
 }
 
-interface KVNamespaceGetWithMetadataResult<T, M> {
+interface KVNamespaceGetWithMetadataResult<T = unknown, M = unknown> {
   value: T | null;
   metadata: M | null;
 }
 
 interface CustomKVNamespace {
-  get(key: string, options?: Partial<KVNamespaceGetOptions<undefined>>): Promise<string | null>;
+  get(key: string, options?: Partial<KVNamespaceGetOptions>): Promise<string | null>;
   put(key: string, value: string, options?: { expiration?: number; expirationTtl?: number }): Promise<void>;
   delete(key: string): Promise<void>;
   list(options?: KVNamespaceListOptions): Promise<KVNamespaceListResult<unknown>>;
@@ -67,7 +67,7 @@ function corsify(response: Response): Response {
 export default {
   // ctx is required by Cloudflare Workers runtime but not used in our code
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
     // Handle CORS preflight requests
     if (request.method === 'OPTIONS') {
       return corsify(new Response(null, { status: 204 }));

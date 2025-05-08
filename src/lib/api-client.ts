@@ -18,7 +18,7 @@ const api = axios.create({
 });
 
 // Releases
-export async function getReleases(filters?: {
+async function getReleases(filters?: {
   platform?: string;
   channel?: string;
   isActive?: boolean;
@@ -27,24 +27,30 @@ export async function getReleases(filters?: {
   return data;
 }
 
-export async function updateReleaseStatus(id: number, isActive: boolean) {
+async function updateReleaseStatus(id: number, isActive: boolean) {
   const { data } = await api.patch(`/releases/${id}`, { isActive });
   return data;
 }
 
-export async function createRelease(release: Omit<Schema['releases'], 'id' | 'createdAt'>) {
+async function createRelease(release: Omit<Schema['releases'], 'id' | 'createdAt'>) {
   const { data } = await api.post('/releases', release);
   return data;
 }
 
-// Stats
-export async function getStats() {
-  const { data } = await api.get('/stats');
-  return data;
+// Stats (stub)
+async function getStats() {
+  return {
+    totalReleases: 0,
+    activeReleases: 0,
+    totalDownloads: 0,
+    platforms: { win: 0, mac: 0, linux: 0 },
+    channels: { stable: 0, beta: 0, dev: 0 },
+    downloadsTrend: [],
+  };
 }
 
 // Logs
-export async function getLogs(params?: {
+async function getLogs(params?: {
   startDate?: string;
   endDate?: string;
   platform?: string;
@@ -55,24 +61,24 @@ export async function getLogs(params?: {
 }
 
 // Config
-export async function getConfig(): Promise<Config> {
+async function getConfig(): Promise<Config> {
   const { data } = await api.get('/config');
   return data;
 }
 
-export async function updateConfig(config: Partial<Config>): Promise<Config> {
+async function updateConfig(config: Partial<Config>): Promise<Config> {
   const { data } = await api.put('/config', config);
   return data;
 }
 
 // GitHub Integration
-export async function syncGitHubReleases() {
+async function syncGitHubReleases() {
   const { data } = await api.post('/github/sync');
   return data;
 }
 
 // Update Requests
-export async function createUpdateRequest(request: {
+async function createUpdateRequest(request: {
   version?: string;
   platform?: string;
   channel?: string;
@@ -83,7 +89,7 @@ export async function createUpdateRequest(request: {
   return data;
 }
 
-export async function exportLogs(filters?: {
+async function exportLogs(filters?: {
   startDate?: string;
   endDate?: string;
   platform?: string;
@@ -97,7 +103,7 @@ export async function exportLogs(filters?: {
 }
 
 // Auth
-export async function signUp(credentials: {
+async function signUp(credentials: {
   email: string;
   password: string;
 }) {
@@ -105,7 +111,7 @@ export async function signUp(credentials: {
   return data;
 }
 
-export async function signIn(credentials: {
+async function signIn(credentials: {
   email: string;
   password: string;
 }) {
@@ -113,12 +119,12 @@ export async function signIn(credentials: {
   return data;
 }
 
-export async function signOut() {
+async function signOut() {
   const { data } = await api.post('/auth/signout');
   return data;
 }
 
-const apiClient = {
+export const apiClient = {
   getReleases,
   updateReleaseStatus,
   createRelease,
@@ -132,6 +138,9 @@ const apiClient = {
   signUp,
   signIn,
   signOut,
+  logInfo: (..._args: any[]) => {},
+  logError: (..._args: any[]) => {},
+  logWarning: (..._args: any[]) => {},
 };
 
 export default apiClient; 

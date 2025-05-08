@@ -21,7 +21,7 @@ export async function getLatestVersion(platform: string, channel: string): Promi
   }
   
   // Find the release with the highest version number
-  return releases.reduce((latest, current) => {
+  return releases.reduce((latest: Schema["releases"] | null, current: Schema["releases"]) => {
     if (!latest || compareVersions(current.version, latest.version) > 0) {
       return current;
     }
@@ -78,7 +78,7 @@ export async function processUpdateRequest(request: UpdateRequest): Promise<stri
   await logUpdateRequest(request);
   
   // Get the latest version for the requested platform and channel
-  const latestRelease = await getLatestVersion(request.platform, request.channel);
+  const latestRelease = await getLatestVersion(request.platform ?? '', request.channel ?? '');
   
   // Generate and return the update XML
   return generateUpdateXml(latestRelease, request);

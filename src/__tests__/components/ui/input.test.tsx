@@ -73,14 +73,14 @@ describe('Input Component', () => {
 
   it('handles form submission correctly', async () => {
     const handleSubmit = jest.fn(e => e.preventDefault());
-    const { input, user } = render(
+    render(
       <form onSubmit={handleSubmit}>
         <Input />
       </form>
     );
-
-    await user.type(screen.getByRole('textbox'), 'test{enter}');
-    
+    const input = screen.getByRole('textbox');
+    const user = userEvent.setup();
+    await user.type(input, 'test{enter}');
     expect(handleSubmit).toHaveBeenCalled();
   });
 

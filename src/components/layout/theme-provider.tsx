@@ -1,4 +1,3 @@
-import * as React from "react"
 import { useEffect, useState, startTransition } from "react"
 import { ThemeProviderContext, type ThemeProviderProps, type Theme } from "./theme-context"
 

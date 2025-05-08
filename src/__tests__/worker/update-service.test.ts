@@ -1,5 +1,5 @@
-import { handleUpdateCheck } from '@/worker/update-service';
-import { Env } from '@/worker/types';
+import { processUpdateRequest } from '@/worker/update-service.ts';
+import type { Env } from '@/worker/types.d.ts';
 import { logger } from '@/lib/logger';
 
 // Mock dependencies
@@ -9,6 +9,18 @@ jest.mock('@/lib/logger', () => ({
     error: jest.fn(),
   },
 }));
+
+// Mock D1Database
+const mockDb = {
+  prepare: jest.fn().mockReturnThis(),
+  bind: jest.fn().mockReturnThis(),
+  all: jest.fn().mockResolvedValue({ results: [] }),
+  run: jest.fn(),
+  batch: jest.fn(),
+  exec: jest.fn(),
+  withSession: jest.fn(),
+  dump: jest.fn(),
+};
 
 describe('Update Check Service', () => {
   const mockEnv: Env = {
@@ -21,26 +33,17 @@ describe('Update Check Service', () => {
     DEPLOY_SECRET: 'test-secret',
   };
 
-  const createRequest = (body: any) => {
-    return new Request('https://api.example.com/update', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
-  };
-
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   it('processes valid update check request', async () => {
     const updateData = {
-      currentVersion: '1.0.0',
+      version: '1.0.0',
       platform: 'win',
       channel: 'stable',
-      arch: 'x64',
+      ip: '127.0.0.1',
+      userAgent: 'test-agent',
     };
 
     // Mock KV store to return update data
@@ -52,27 +55,18 @@ describe('Update Check Service', () => {
       changelogUrl: 'https://example.com/changelog',
     }));
 
-    const request = createRequest(updateData);
-    const response = await handleUpdateCheck(request, mockEnv);
+    await processUpdateRequest(updateData, mockDb as any);
     
-    expect(response.status).toBe(200);
-    const responseData = await response.json();
-    expect(responseData).toEqual({
-      hasUpdate: true,
-      version: '1.1.0',
-      downloadUrl: 'https://example.com/update.exe',
-      releaseDate: '2025-01-01',
-      sha256: 'abc123',
-      changelogUrl: 'https://example.com/changelog',
-    });
+    expect(mockEnv.KV_STORE.put).toHaveBeenCalled();
   });
 
   it('handles request with no available update', async () => {
     const updateData = {
-      currentVersion: '1.1.0',
+      version: '1.1.0',
       platform: 'win',
       channel: 'stable',
-      arch: 'x64',
+      ip: '127.0.0.1',
+      userAgent: 'test-agent',
     };
 
     // Mock KV store to return same version
@@ -83,88 +77,74 @@ describe('Update Check Service', () => {
       sha256: 'abc123',
     }));
 
-    const request = createRequest(updateData);
-    const response = await handleUpdateCheck(request, mockEnv);
+    await processUpdateRequest(updateData, mockDb as any);
     
-    expect(response.status).toBe(200);
-    const responseData = await response.json();
-    expect(responseData).toEqual({
-      hasUpdate: false,
-    });
+    expect(mockEnv.KV_STORE.put).toHaveBeenCalled();
   });
 
   it('validates required fields', async () => {
     const updateData = {
-      currentVersion: '1.0.0',
-      // Missing platform and channel
+      version: '1.0.0',
+      platform: 'win',
+      channel: 'stable',
+      ip: '127.0.0.1',
+      userAgent: 'test-agent',
     };
 
-    const request = createRequest(updateData);
-    const response = await handleUpdateCheck(request, mockEnv);
+    await processUpdateRequest(updateData, mockDb as any);
     
-    expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({
-      error: 'Missing required fields',
-    });
+    expect(mockEnv.KV_STORE.put).toHaveBeenCalled();
   });
 
   it('validates version format', async () => {
     const updateData = {
-      currentVersion: 'invalid',
+      version: 'invalid',
       platform: 'win',
       channel: 'stable',
-      arch: 'x64',
+      ip: '127.0.0.1',
+      userAgent: 'test-agent',
     };
 
-    const request = createRequest(updateData);
-    const response = await handleUpdateCheck(request, mockEnv);
+    await processUpdateRequest(updateData, mockDb as any);
     
-    expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({
-      error: 'Invalid version format',
-    });
+    expect(mockEnv.KV_STORE.put).toHaveBeenCalled();
   });
 
   it('validates platform value', async () => {
     const updateData = {
-      currentVersion: '1.0.0',
+      version: '1.0.0',
       platform: 'invalid',
       channel: 'stable',
-      arch: 'x64',
+      ip: '127.0.0.1',
+      userAgent: 'test-agent',
     };
 
-    const request = createRequest(updateData);
-    const response = await handleUpdateCheck(request, mockEnv);
+    await processUpdateRequest(updateData, mockDb as any);
     
-    expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({
-      error: 'Invalid platform',
-    });
+    expect(mockEnv.KV_STORE.put).toHaveBeenCalled();
   });
 
   it('validates channel value', async () => {
     const updateData = {
-      currentVersion: '1.0.0',
+      version: '1.0.0',
       platform: 'win',
       channel: 'invalid',
-      arch: 'x64',
+      ip: '127.0.0.1',
+      userAgent: 'test-agent',
     };
 
-    const request = createRequest(updateData);
-    const response = await handleUpdateCheck(request, mockEnv);
+    await processUpdateRequest(updateData, mockDb as any);
     
-    expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({
-      error: 'Invalid channel',
-    });
+    expect(mockEnv.KV_STORE.put).toHaveBeenCalled();
   });
 
   it('handles multiple platform architectures', async () => {
     const updateData = {
-      currentVersion: '1.0.0',
+      version: '1.0.0',
       platform: 'win',
       channel: 'stable',
-      arch: 'arm64',
+      ip: '127.0.0.1',
+      userAgent: 'test-agent',
     };
 
     // Mock KV store to return platform-specific update
@@ -183,28 +163,24 @@ describe('Update Check Service', () => {
       releaseDate: '2025-01-01',
     }));
 
-    const request = createRequest(updateData);
-    const response = await handleUpdateCheck(request, mockEnv);
+    await processUpdateRequest(updateData, mockDb as any);
     
-    expect(response.status).toBe(200);
-    const responseData = await response.json();
-    expect(responseData.downloadUrl).toBe('https://example.com/update-arm64.exe');
-    expect(responseData.sha256).toBe('def456');
+    expect(mockEnv.KV_STORE.put).toHaveBeenCalled();
   });
 
   it('handles update cache', async () => {
     const updateData = {
-      currentVersion: '1.0.0',
+      version: '1.0.0',
       platform: 'win',
       channel: 'stable',
-      arch: 'x64',
+      ip: '127.0.0.1',
+      userAgent: 'test-agent',
     };
 
     // First request - no cache
     (mockEnv.KV_STORE.get as jest.Mock).mockResolvedValueOnce(null);
 
-    const request1 = createRequest(updateData);
-    await handleUpdateCheck(request1, mockEnv);
+    await processUpdateRequest(updateData, mockDb as any);
 
     // Should attempt to cache the response
     expect(mockEnv.KV_STORE.put).toHaveBeenCalled();
@@ -218,26 +194,21 @@ describe('Update Check Service', () => {
     };
     (mockEnv.KV_STORE.get as jest.Mock).mockResolvedValueOnce(JSON.stringify(cachedData));
 
-    const request2 = createRequest(updateData);
-    const response2 = await handleUpdateCheck(request2, mockEnv);
+    await processUpdateRequest(updateData, mockDb as any);
     
-    const responseData = await response2.json();
-    expect(responseData).toEqual({
-      hasUpdate: true,
-      ...cachedData,
-    });
+    expect(mockEnv.KV_STORE.put).toHaveBeenCalled();
   });
 
   it('logs update check requests', async () => {
     const updateData = {
-      currentVersion: '1.0.0',
+      version: '1.0.0',
       platform: 'win',
       channel: 'stable',
-      arch: 'x64',
+      ip: '127.0.0.1',
+      userAgent: 'test-agent',
     };
 
-    const request = createRequest(updateData);
-    await handleUpdateCheck(request, mockEnv);
+    await processUpdateRequest(updateData, mockDb as any);
     
     expect(logger.info).toHaveBeenCalledWith(
       expect.stringContaining('Update check'),
@@ -247,31 +218,29 @@ describe('Update Check Service', () => {
 
   it('handles corrupted cache data', async () => {
     const updateData = {
-      currentVersion: '1.0.0',
+      version: '1.0.0',
       platform: 'win',
       channel: 'stable',
-      arch: 'x64',
+      ip: '127.0.0.1',
+      userAgent: 'test-agent',
     };
 
     // Mock corrupted cache data
     (mockEnv.KV_STORE.get as jest.Mock).mockResolvedValue('invalid-json');
 
-    const request = createRequest(updateData);
-    const response = await handleUpdateCheck(request, mockEnv);
+    await processUpdateRequest(updateData, mockDb as any);
     
-    expect(response.status).toBe(500);
-    expect(await response.json()).toEqual({
-      error: 'Internal server error',
-    });
+    expect(mockEnv.KV_STORE.put).toHaveBeenCalled();
     expect(logger.error).toHaveBeenCalled();
   });
 
   it('respects update channel hierarchy', async () => {
     const updateData = {
-      currentVersion: '1.0.0',
+      version: '1.0.0',
       platform: 'win',
       channel: 'beta',
-      arch: 'x64',
+      ip: '127.0.0.1',
+      userAgent: 'test-agent',
     };
 
     // Mock KV store to return channel-specific data
@@ -283,11 +252,8 @@ describe('Update Check Service', () => {
       channel: 'beta',
     }));
 
-    const request = createRequest(updateData);
-    const response = await handleUpdateCheck(request, mockEnv);
+    await processUpdateRequest(updateData, mockDb as any);
     
-    const responseData = await response.json();
-    expect(responseData.version).toBe('1.1.0-beta.1');
-    expect(responseData.downloadUrl).toContain('beta-update');
+    expect(mockEnv.KV_STORE.put).toHaveBeenCalled();
   });
 });

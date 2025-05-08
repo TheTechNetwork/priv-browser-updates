@@ -57,7 +57,7 @@ describe('Theme System', () => {
 
   it('persists theme preference', async () => {
     const { user } = { user: userEvent.setup() };
-    const { unmount } = render(<TestComponent />);
+    render(<TestComponent />);
 
     // Set theme
     await user.click(screen.getByText('Set Dark'));

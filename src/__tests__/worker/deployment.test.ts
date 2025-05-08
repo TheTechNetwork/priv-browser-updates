@@ -2,7 +2,7 @@ import { describe, expect, it, jest } from '@jest/globals';
 import * as fs from 'fs';
 import * as path from 'path';
 import { handleDeployment } from '@/worker/deployment';
-import { Env } from '@/worker/types';
+import type { Env } from '@/worker/types.d.ts';
 import { checkDeploymentStatus } from '@/worker/deploy-check';
 import { logger } from '@/lib/logger';
 
@@ -25,6 +25,9 @@ jest.mock('@/lib/logger', () => ({
 
 // Import the mocked execSync
 import { execSync } from 'child_process';
+
+// Add a typed mock for checkDeploymentStatus
+const mockedCheckDeploymentStatus = checkDeploymentStatus as unknown as jest.Mock;
 
 describe('Cloudflare Worker Deployment', () => {
   it('should have a valid wrangler.toml configuration', () => {
@@ -143,7 +146,7 @@ describe('Worker Deployment Handler', () => {
       commitHash: 'abc123',
     };
 
-    (checkDeploymentStatus as jest.Mock).mockResolvedValue({
+    (mockedCheckDeploymentStatus as any).mockResolvedValue({
       status: 'success',
       artifactUrl: 'https://example.com/artifact.exe',
     });
@@ -233,7 +236,7 @@ describe('Worker Deployment Handler', () => {
       commitHash: 'abc123',
     };
 
-    (checkDeploymentStatus as jest.Mock).mockRejectedValue(
+    (mockedCheckDeploymentStatus as any).mockRejectedValue(
       new Error('Deployment check failed')
     );
 
@@ -254,7 +257,7 @@ describe('Worker Deployment Handler', () => {
       commitHash: 'abc123',
     };
 
-    (checkDeploymentStatus as jest.Mock).mockResolvedValue({
+    (mockedCheckDeploymentStatus as any).mockResolvedValue({
       status: 'success',
       artifactUrl: 'https://example.com/artifact.exe',
     });
@@ -276,7 +279,7 @@ describe('Worker Deployment Handler', () => {
       commitHash: 'abc123',
     };
 
-    (checkDeploymentStatus as jest.Mock).mockResolvedValue({
+    (mockedCheckDeploymentStatus as any).mockResolvedValue({
       status: 'success',
       artifactUrl: 'https://example.com/artifact.exe',
     });
@@ -298,8 +301,7 @@ describe('Worker Deployment Handler', () => {
       commitHash: 'abc123',
     };
 
-    // Simulate existing deployment in progress
-    (mockEnv.KV_STORE.get as jest.Mock).mockResolvedValueOnce(
+    (mockEnv.KV_STORE.get as any).mockResolvedValueOnce(
       JSON.stringify({
         status: 'in_progress',
         timestamp: Date.now(),
@@ -323,7 +325,7 @@ describe('Worker Deployment Handler', () => {
       commitHash: 'abc123',
     };
 
-    (checkDeploymentStatus as jest.Mock).mockResolvedValue({
+    (mockedCheckDeploymentStatus as any).mockResolvedValue({
       status: 'success',
       artifactUrl: 'https://example.com/artifact.exe',
     });

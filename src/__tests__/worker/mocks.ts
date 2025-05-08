@@ -1,22 +1,31 @@
 import { jest } from '@jest/globals';
-import type { D1Database, D1Result, D1ExecResult, ExecutionContext } from '@cloudflare/workers-types';
+import type { D1Database, D1Result } from '@cloudflare/workers-types';
 
 // Setup globals that would be available in a Cloudflare Worker environment
-global.Request = jest.fn().mockImplementation((input, init) => ({
-  url: typeof input === 'string' ? input : input.url,
-  method: init?.method || 'GET',
-  headers: new Map(Object.entries(init?.headers || {})),
-  cf: {},
-})) as unknown as typeof Request;
+global.Request = jest.fn().mockImplementation((input, init) => {
+  const url = typeof input === 'string' ? input : (input as { url: string }).url;
+  const method = (init && (init as { method?: string }).method) || 'GET';
+  const headers = new Map(Object.entries((init && (init as { headers?: any }).headers) || {}));
+  return {
+    url,
+    method,
+    headers,
+    cf: {},
+  };
+}) as unknown as typeof Request;
 
-global.Response = jest.fn().mockImplementation((body, init) => ({
-  body,
-  status: init?.status || 200,
-  headers: new Map(Object.entries(init?.headers || {})),
-})) as unknown as typeof Response;
+global.Response = jest.fn().mockImplementation((body, init) => {
+  const status = (init && (init as { status?: number }).status) || 200;
+  const headers = new Map(Object.entries((init && (init as { headers?: any }).headers) || {}));
+  return {
+    body,
+    status,
+    headers,
+  };
+}) as unknown as typeof Response;
 
 // Define our own KVNamespace interface that matches what we need
-interface KVNamespaceGetOptions<T> {
+interface KVNamespaceGetOptions {
   type?: 'text' | 'json' | 'arrayBuffer' | 'stream';
   cacheTtl?: number;
 }
@@ -39,7 +48,7 @@ interface KVNamespaceGetWithMetadataResult<T, M> {
 }
 
 interface MockKVNamespace {
-  get(key: string, options?: Partial<KVNamespaceGetOptions<undefined>>): Promise<string | null>;
+  get(key: string, options?: Partial<KVNamespaceGetOptions>): Promise<string | null>;
   put(key: string, value: string, options?: { expiration?: number; expirationTtl?: number }): Promise<void>;
   delete(key: string): Promise<void>;
   list(options?: KVNamespaceListOptions): Promise<KVNamespaceListResult<unknown>>;

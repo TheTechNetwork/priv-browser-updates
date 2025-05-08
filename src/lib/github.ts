@@ -1,22 +1,5 @@
 import { apiClient } from './api';
 
-interface GitHubRelease {
-  id: number;
-  tag_name: string;
-  name: string;
-  body: string;
-  draft: boolean;
-  prerelease: boolean;
-  created_at: string;
-  published_at: string;
-  assets: Array<{
-    id: number;
-    name: string;
-    size: number;
-    browser_download_url: string;
-  }>;
-}
-
 export interface Release {
   version: string;
   channel: string;

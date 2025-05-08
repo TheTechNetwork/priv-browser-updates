@@ -160,12 +160,12 @@ const Logs = () => {
               <tbody>
                 {logs.map((log) => (
                   <tr key={log.id} className="border-b last:border-0">
-                    <td className="py-2">{new Date(log.timestamp).toLocaleString()}</td>
+                    <td className="py-2">{new Date(log.timestamp ?? '').toLocaleString()}</td>
                     <td className="py-2">{log.clientVersion || '-'}</td>
                     <td className="py-2">{log.platform || '-'}</td>
                     <td className="py-2">{log.channel || '-'}</td>
                     <td className="py-2">{log.ip || '-'}</td>
-                    <td className="py-2 truncate max-w-xs" title={log.userAgent}>
+                    <td className="py-2 truncate max-w-xs" title={log.userAgent ?? undefined}>
                       {log.userAgent || '-'}
                     </td>
                   </tr>

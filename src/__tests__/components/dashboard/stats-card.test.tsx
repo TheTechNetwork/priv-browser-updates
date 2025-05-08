@@ -1,4 +1,3 @@
-import * as React from 'react';
 import { render, screen } from '@testing-library/react';
 import { DashboardStatsCard } from '@/components/dashboard/DashboardStatsCard';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';

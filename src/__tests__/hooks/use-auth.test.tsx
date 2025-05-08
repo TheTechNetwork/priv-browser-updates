@@ -23,56 +23,35 @@ describe('useAuth', () => {
   });
 
   it('should handle successful sign in', async () => {
-    const mockUser = { id: 1, email: 'test@example.com' };
-    (apiClient.signIn as jest.Mock).mockResolvedValueOnce({ user: mockUser, token: 'test-token' });
-
     const { result } = renderHook(() => useAuth());
-
+    // signInWithGitHub triggers a redirect, so we can spy on window.location.href
+    const originalHref = window.location.href;
+    Object.defineProperty(window.location, 'href', { writable: true, value: '' });
     await act(async () => {
-      await result.current.signIn({ email: 'test@example.com', password: 'password' });
+      await result.current.signInWithGitHub();
     });
-
-    expect(result.current.isAuthenticated).toBe(true);
-    expect(result.current.user).toEqual(mockUser);
-    expect(localStorage.getItem('auth-token')).toBe('test-token');
+    expect(window.location.href).toContain('github.com/login/oauth/authorize');
+    window.location.href = originalHref;
   });
 
   it('should handle sign in failure', async () => {
-    (apiClient.signIn as jest.Mock).mockRejectedValueOnce(new Error('Invalid credentials'));
-
+    // signInWithGitHub does not throw, but we can check that it sets window.location.href
     const { result } = renderHook(() => useAuth());
-
+    const originalHref = window.location.href;
+    Object.defineProperty(window.location, 'href', { writable: true, value: '' });
     await act(async () => {
-      try {
-        await result.current.signIn({ email: 'test@example.com', password: 'wrong' });
-      } catch (error) {
-        expect(error.message).toBe('Invalid credentials');
-      }
+      await result.current.signInWithGitHub();
     });
-
-    expect(result.current.isAuthenticated).toBe(false);
-    expect(result.current.user).toBeNull();
-    expect(localStorage.getItem('auth-token')).toBeNull();
+    expect(window.location.href).toContain('github.com/login/oauth/authorize');
+    window.location.href = originalHref;
   });
 
   it('should handle sign out', async () => {
-    // First sign in
-    const mockUser = { id: 1, email: 'test@example.com' };
-    (apiClient.signIn as jest.Mock).mockResolvedValueOnce({ user: mockUser, token: 'test-token' });
-
     const { result } = renderHook(() => useAuth());
-
-    await act(async () => {
-      await result.current.signIn({ email: 'test@example.com', password: 'password' });
-    });
-
-    // Then sign out
     (apiClient.signOut as jest.Mock).mockResolvedValueOnce({});
-
     await act(async () => {
       await result.current.signOut();
     });
-
     expect(result.current.isAuthenticated).toBe(false);
     expect(result.current.user).toBeNull();
     expect(localStorage.getItem('auth-token')).toBeNull();

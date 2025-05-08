@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth as useAuthStore, exchangeCodeForToken, getUserData } from '@/lib/auth';
-import type { User } from '@/lib/auth';
 
 export const useAuth = useAuthStore;
 

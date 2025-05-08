@@ -1,5 +1,4 @@
 import { describe, expect, it, jest, beforeEach } from '@jest/globals';
-import type { ExecutionContext } from "@cloudflare/workers-types";
 import type { Env } from '../../../worker/src/index';
 import { createMockD1Database, createMockKVNamespace, createMockExecutionContext } from './mocks';
 
@@ -20,7 +19,7 @@ const mockCtx = createMockExecutionContext();
 // Mock the worker module
 jest.mock('../../../worker/src/index', () => ({
   default: {
-    fetch: jest.fn().mockImplementation(async (request: Request) => {
+    fetch: (jest.fn().mockImplementation(async (request: any, _env?: any, _ctx?: any) => {
       const url = new URL(request.url);
       
       if (url.pathname === '/update') {
@@ -45,7 +44,7 @@ jest.mock('../../../worker/src/index', () => ({
         // 404 for unknown paths
         return new Response('Not found', { status: 404 });
       }
-    })
+    })) as any
   }
 }));
 

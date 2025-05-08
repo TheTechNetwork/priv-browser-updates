@@ -3,7 +3,7 @@
 //adjust the items based on route paths
 import { Home, List, FileText, Settings, User } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 
 import {
   Sidebar,

@@ -6,14 +6,6 @@ interface GitHubAuthResponse {
   error_description?: string;
 }
 
-interface GitHubUserData {
-  id: number;
-  name?: string;
-  login: string;
-  email: string;
-  avatar_url: string;
-}
-
 export async function handleGitHubCallback(request: Request, env: Env): Promise<Response> {
   try {
     let code: string | null = null;

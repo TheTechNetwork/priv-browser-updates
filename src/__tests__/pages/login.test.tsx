@@ -20,7 +20,7 @@ describe('Login Page', () => {
   const mockSignIn = jest.fn();
   
   const setup = (isAuthenticated = false) => {
-    (useAuth as jest.Mock).mockReturnValue({
+    (useAuth as unknown as jest.Mock).mockReturnValue({
       signIn: mockSignIn,
       isAuthenticated,
     });

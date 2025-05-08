@@ -3,12 +3,12 @@ import apiClient from '../../lib/api-client';
 
 // Mock fetch globally
 const mockFetch = jest.fn();
-global.fetch = mockFetch;
+global.fetch = mockFetch as any;
 
 // Add missing logging methods to apiClient
-apiClient.logInfo = jest.fn();
-apiClient.logError = jest.fn();
-apiClient.logWarning = jest.fn();
+// apiClient.logInfo = jest.fn();
+// apiClient.logError = jest.fn();
+// apiClient.logWarning = jest.fn();
 
 describe('API Client', () => {
   beforeEach(() => {
@@ -18,7 +18,7 @@ describe('API Client', () => {
   describe('getReleases', () => {
     it('should fetch releases without filters', async () => {
       const mockReleases = [{ id: 1, version: '1.0.0' }];
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (global.fetch as any).mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ data: mockReleases })
       });
@@ -31,7 +31,7 @@ describe('API Client', () => {
     it('should fetch releases with filters', async () => {
       const filters = { platform: 'win', channel: 'stable' };
       const mockReleases = [{ id: 1, version: '1.0.0', ...filters }];
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (global.fetch as any).mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ data: mockReleases })
       });
@@ -45,7 +45,7 @@ describe('API Client', () => {
   describe('updateReleaseStatus', () => {
     it('should update release status', async () => {
       const mockResponse = { success: true };
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (global.fetch as any).mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ data: mockResponse })
       });
@@ -64,10 +64,11 @@ describe('API Client', () => {
       const newRelease = {
         version: '1.0.0',
         platform: 'win',
-        channel: 'stable'
+        channel: 'stable',
+        downloadUrl: 'https://example.com/download/1.0.0',
       };
       const mockResponse = { id: 1, ...newRelease };
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (global.fetch as any).mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ data: mockResponse })
       });
@@ -84,7 +85,7 @@ describe('API Client', () => {
   describe('getStats', () => {
     it('should fetch statistics', async () => {
       const mockStats = { totalReleases: 10, activeReleases: 5 };
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (global.fetch as any).mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ data: mockStats })
       });
@@ -104,7 +105,7 @@ describe('API Client', () => {
         channel: 'stable'
       };
       const mockLogs = [{ id: 1, timestamp: '2025-01-01', version: '1.0.0' }];
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (global.fetch as any).mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ data: mockLogs })
       });
@@ -117,7 +118,7 @@ describe('API Client', () => {
 
   describe('error handling', () => {
     it('should handle API errors', async () => {
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (global.fetch as any).mockResolvedValueOnce({
         ok: false,
         status: 500,
         statusText: 'Internal Server Error'
@@ -127,7 +128,7 @@ describe('API Client', () => {
     });
 
     it('should handle network errors', async () => {
-      (global.fetch as jest.Mock).mockRejectedValueOnce(new Error('Network error'));
+      (global.fetch as any).mockRejectedValueOnce(new Error('Network error'));
       await expect(apiClient.getReleases()).rejects.toThrow('Network error');
     });
   });

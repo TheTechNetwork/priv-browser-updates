@@ -28,7 +28,7 @@ describe('Auth Route Components', () => {
 
   describe('PrivateRoute', () => {
     const renderPrivateRoute = (isAuthenticated: boolean) => {
-      (useAuth as jest.Mock).mockReturnValue({ isAuthenticated });
+      (useAuth as unknown as jest.Mock).mockReturnValue({ isAuthenticated });
       
       render(
         <BrowserRouter>
@@ -65,7 +65,7 @@ describe('Auth Route Components', () => {
 
   describe('PublicRoute', () => {
     const renderPublicRoute = (isAuthenticated: boolean) => {
-      (useAuth as jest.Mock).mockReturnValue({ isAuthenticated });
+      (useAuth as unknown as jest.Mock).mockReturnValue({ isAuthenticated });
       
       render(
         <BrowserRouter>
@@ -116,7 +116,7 @@ describe('Auth Route Components', () => {
 
   describe('Route Integration', () => {
     it('handles nested private routes', () => {
-      (useAuth as jest.Mock).mockReturnValue({ isAuthenticated: true });
+      (useAuth as unknown as jest.Mock).mockReturnValue({ isAuthenticated: true });
       
       const NestedPrivate = () => <div>Nested Private Content</div>;
       
@@ -141,7 +141,7 @@ describe('Auth Route Components', () => {
 
     it('preserves route parameters in redirects', () => {
       window.history.pushState({}, '', '/releases/123');
-      (useAuth as jest.Mock).mockReturnValue({ isAuthenticated: false });
+      (useAuth as unknown as jest.Mock).mockReturnValue({ isAuthenticated: false });
       
       render(
         <BrowserRouter>

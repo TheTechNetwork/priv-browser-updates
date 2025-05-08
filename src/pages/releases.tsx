@@ -53,7 +53,7 @@ const Releases = () => {
       console.error("Failed to sync releases:", error);
       toast({
         title: "Sync failed",
-        description: error.message || "Failed to synchronize releases from GitHub.",
+        description: error instanceof Error ? error.message : "Failed to synchronize releases from GitHub.",
         variant: "destructive",
       });
     } finally {
@@ -63,7 +63,7 @@ const Releases = () => {
 
   const handleToggleStatus = async (release: Schema["releases"]) => {
     try {
-      await apiClient.updateReleaseStatus(release.id, !release.isActive);
+      await apiClient.updateReleaseStatus(release.id ?? 0, !release.isActive);
       toast({
         title: "Status updated",
         description: `Release ${release.version} has been ${release.isActive ? "deactivated" : "activated"}.`,
@@ -73,7 +73,7 @@ const Releases = () => {
       console.error("Failed to update release status:", error);
       toast({
         title: "Update failed",
-        description: error.message || "Failed to update release status.",
+        description: error instanceof Error ? error.message : "Failed to update release status.",
         variant: "destructive",
       });
     }

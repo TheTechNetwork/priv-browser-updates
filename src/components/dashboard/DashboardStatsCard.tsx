@@ -1,4 +1,3 @@
-import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import apiClient from "@/lib/api-client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -22,7 +21,6 @@ export function DashboardStatsCard() {
     data: stats,
     isLoading,
     isError,
-    refetch,
   } = useQuery<Stats>({
     queryKey: ["stats"],
     queryFn: apiClient.getStats,
