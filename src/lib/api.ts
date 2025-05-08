@@ -1,10 +1,11 @@
 import axios from 'axios';
+import { getApiBaseUrl } from './api-base-url';
 
 let API_BASE_URL = '';
 if (process.env.NODE_ENV !== 'test') {
   // Only import the Vite-specific code outside of tests
   // eslint-disable-next-line @typescript-eslint/no-var-requires
-  API_BASE_URL = require('./api-base-url').getApiBaseUrl();
+  API_BASE_URL = getApiBaseUrl();
 }
 
 const axiosInstance = axios.create({
